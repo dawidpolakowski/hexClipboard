@@ -2,7 +2,11 @@
 
 > Clipboard history manager with a hex grid browser. Built with Electron.
 
-![hexClipboard](https://img.shields.io/badge/version-1.0.0-7f77dd?style=flat-square) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-afa9ec?style=flat-square) ![license](https://img.shields.io/badge/license-MIT-5dcaa5?style=flat-square)
+![hexClipboard](https://img.shields.io/badge/version-1.0.0-7f77dd?style=flat-square) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-afa9ec?style=flat-square) ![license](https://img.shields.io/badge/license-MIT-5dcaa5?style=flat-square) [![Build](https://github.com/dawidpolakowski/hexClipboard/actions/workflows/build.yml/badge.svg)](https://github.com/dawidpolakowski/hexClipboard/actions/workflows/build.yml)
+
+## Download
+
+**[⬇ Latest Windows build](https://github.com/dawidpolakowski/hexClipboard/releases/latest)**
 
 hexClipboard sits quietly in your system tray and captures every copy you make — text, links, and code. Retrieve anything instantly with a global shortcut, smart search, and pinned favourites. Browse your full history in the signature hexagonal grid view.
 

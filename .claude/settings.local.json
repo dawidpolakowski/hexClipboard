@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(echo \"Electron launched \\(PID: $!\\)\")",
+      "Bash(./node_modules/electron/dist/electron.exe . --dev)"
+    ]
+  }
+}
