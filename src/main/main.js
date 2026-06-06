@@ -84,7 +84,7 @@ function broadcastHistory() {
 function setPrivateMode(enabled) {
   isPrivateMode = enabled;
   if (tray) {
-    tray.setToolTip(isPrivateMode ? "hexClipboard (private)" : "hexClipboard");
+    tray.setToolTip(isPrivateMode ? "Hexbench (private)" : "Hexbench");
     tray.setContextMenu(buildTrayMenu());
   }
   mainWindow?.webContents.send("private-mode", isPrivateMode);
@@ -116,7 +116,7 @@ function startPolling() {
 // ── Tray ──────────────────────────────────────────────────────────────────────
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
-    { label: `hexClipboard v${app.getVersion()}`, enabled: false },
+    { label: `Hexbench v${app.getVersion()}`, enabled: false },
     { type: "separator" },
     { label: "Open", accelerator: "Ctrl+Shift+V", click: () => showWindow() },
     { label: "Hex grid view", accelerator: "Ctrl+Shift+H", click: () => showWindow("hex") },
@@ -143,7 +143,7 @@ function buildTrayMenu() {
 
 function createTray() {
   tray = new Tray(makeTrayIcon());
-  tray.setToolTip("hexClipboard");
+  tray.setToolTip("Hexbench");
   tray.setContextMenu(buildTrayMenu());
   tray.on("click", toggleWindow);
   tray.on("double-click", () => showWindow());
@@ -164,7 +164,7 @@ function registerShortcuts() {
 }
 
 // ── Single instance ───────────────────────────────────────────────────────────
-app.setAppUserModelId("com.dawidpolakowski.hexclipboard");
+app.setAppUserModelId("com.dawidpolakowski.hexbench");
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -175,7 +175,7 @@ if (!gotLock) {
 
 app.whenReady().then(() => {
   if (!gotLock) return;
-  app.setName("hexClipboard");
+  app.setName("Hexbench");
   console.log(`[main] ready — v${app.getVersion()} packaged=${app.isPackaged} platform=${process.platform}`);
 
   createAppMenu();
@@ -201,7 +201,7 @@ app.whenReady().then(() => {
       dialog.showMessageBox(mainWindow, {
         type: "info",
         title: "Update ready",
-        message: "A new version has been downloaded. Restart hexClipboard to apply it.",
+        message: "A new version has been downloaded. Restart Hexbench to apply it.",
         buttons: ["Restart now", "Later"],
       }).then(({ response }) => {
         if (response === 0) autoUpdater.quitAndInstall();

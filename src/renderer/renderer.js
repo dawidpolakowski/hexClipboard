@@ -107,6 +107,14 @@ const HEX_H = 2 * HEX_R;
 const HEX_VSTEP = 1.5 * HEX_R;
 const HEX_PAD = 10;
 
+// Snap a dropped hex to the nearest honeycomb slot (magnetic).
+function snapHex(x, y) {
+  const row = Math.max(0, Math.round((y - HEX_PAD) / HEX_VSTEP));
+  const off = row % 2 ? HEX_W / 2 : 0;
+  const col = Math.max(0, Math.round((x - HEX_PAD - off) / HEX_W));
+  return { x: HEX_PAD + col * HEX_W + off, y: HEX_PAD + row * HEX_VSTEP };
+}
+
 function hexTextRows(item) {
   const cx = HEX_W / 2, cy = HEX_H / 2;
   const flat = item.text.replace(/\s+/g, " ").trim();
@@ -316,6 +324,21 @@ function notePreview(note) {
   return note.body.replace(/\s+/g, " ").trim() || "Empty note";
 }
 
+// Note grid geometry (rectangular cards)
+const NOTE_W = 168, NOTE_H = 96, NOTE_GAP = 10, NOTE_PAD = 8;
+
+function noteCardHtml(n, style) {
+  const title = (n.title || "").trim() || "Untitled";
+  const preview = notePreview(n).slice(0, 120);
+  const active = n.id === activeNoteId ? " active" : "";
+  const tag = n.type === "list" ? '<span class="note-tag">list</span>' : "";
+  return `<div class="note-card${active}" data-note="${n.id}"${style ? ` style="${style}"` : ""}>
+    <div class="note-card-title">${tag}${esc(title)}</div>
+    <div class="note-card-preview">${esc(preview)}</div>
+    <div class="note-card-meta">${relTime(n.updated)}</div>
+  </div>`;
+}
+
 function renderNotes() {
   const q = $("search").value.toLowerCase();
   const items = notes.filter((n) => !q || `${n.title} ${n.body}`.toLowerCase().includes(q));
@@ -324,24 +347,47 @@ function renderNotes() {
     : "No notes";
 
   const list = $("notesList");
-  list.classList.toggle("grid-mode", noteView === "grid");
-  list.classList.toggle("list-mode", noteView === "list");
+  const isGrid = noteView === "grid";
+  list.classList.toggle("grid-mode", isGrid);
+  list.classList.toggle("list-mode", !isGrid);
+
   if (!items.length) {
+    list.style.height = "";
     list.innerHTML = '<div class="empty"><span class="empty-icon">🗒</span>No notes yet</div>';
+  } else if (isGrid) {
+    // Absolute layout: custom-positioned (dragged) cards stay put, the rest flow.
+    const avail = (list.clientWidth || 700) - NOTE_PAD * 2;
+    const cols = Math.max(1, Math.floor((avail + NOTE_GAP) / (NOTE_W + NOTE_GAP)));
+    let slot = 0, maxBottom = 0, html = "";
+    items.forEach((n) => {
+      const moved = Number.isFinite(n.nx) && Number.isFinite(n.ny);
+      let x, y;
+      if (moved) { x = n.nx; y = n.ny; }
+      else {
+        const r = Math.floor(slot / cols), c = slot % cols;
+        x = NOTE_PAD + c * (NOTE_W + NOTE_GAP);
+        y = NOTE_PAD + r * (NOTE_H + NOTE_GAP);
+        slot++;
+      }
+      maxBottom = Math.max(maxBottom, y + NOTE_H);
+      html += noteCardHtml(n, `left:${x}px;top:${y}px;width:${NOTE_W}px;height:${NOTE_H}px`);
+    });
+    // Spacer makes the absolutely-positioned content scrollable.
+    html += `<div class="notes-spacer" style="top:${maxBottom + NOTE_PAD}px"></div>`;
+    list.style.height = "";
+    list.innerHTML = html;
   } else {
-    list.innerHTML = items.map((n) => {
-      const title = (n.title || "").trim() || "Untitled";
-      const preview = notePreview(n).slice(0, 120);
-      const active = n.id === activeNoteId ? " active" : "";
-      const tag = n.type === "list" ? '<span class="note-tag">list</span>' : "";
-      return `<div class="note-card${active}" data-note="${n.id}">
-        <div class="note-card-title">${tag}${esc(title)}</div>
-        <div class="note-card-preview">${esc(preview)}</div>
-        <div class="note-card-meta">${relTime(n.updated)}</div>
-      </div>`;
-    }).join("");
+    list.style.height = "";
+    list.innerHTML = items.map((n) => noteCardHtml(n, "")).join("");
   }
   renderNoteEditor();
+}
+
+// Snap a dropped position to the nearest aligned slot (magnetic).
+function snapNote(x, y) {
+  const col = Math.max(0, Math.round((x - NOTE_PAD) / (NOTE_W + NOTE_GAP)));
+  const row = Math.max(0, Math.round((y - NOTE_PAD) / (NOTE_H + NOTE_GAP)));
+  return { x: NOTE_PAD + col * (NOTE_W + NOTE_GAP), y: NOTE_PAD + row * (NOTE_H + NOTE_GAP) };
 }
 
 function renderNoteEditor() {
@@ -461,9 +507,64 @@ $("tabHex").onclick = () => setView("hex");
 $("tabNotes").onclick = () => setView("notes");
 
 $("newNoteBtn").onclick = () => newNote();
-$("notesList").addEventListener("click", (e) => {
+
+const notesListEl = $("notesList");
+// List mode: plain click selects. (Grid mode selection is handled on mouseup.)
+notesListEl.addEventListener("click", (e) => {
+  if (noteView === "grid") return;
   const card = e.target.closest("[data-note]");
   if (card) { activeNoteId = Number(card.dataset.note); renderNotes(); }
+});
+
+// Grid mode: drag note cards to rearrange, with magnetic snapping.
+let noteDrag = null;
+notesListEl.addEventListener("mousedown", (e) => {
+  if (noteView !== "grid" || e.button !== 0) return;
+  const card = e.target.closest(".note-card");
+  if (!card) return;
+  noteDrag = {
+    id: Number(card.dataset.note),
+    el: card,
+    startX: e.clientX,
+    startY: e.clientY,
+    origLeft: parseFloat(card.style.left) || 0,
+    origTop: parseFloat(card.style.top) || 0,
+    moved: false,
+  };
+  e.preventDefault();
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!noteDrag) return;
+  const dx = e.clientX - noteDrag.startX, dy = e.clientY - noteDrag.startY;
+  if (!noteDrag.moved && Math.hypot(dx, dy) < 4) return;
+  noteDrag.moved = true;
+  noteDrag.el.classList.add("dragging");
+  noteDrag.el.style.left = Math.max(0, noteDrag.origLeft + dx) + "px";
+  noteDrag.el.style.top = Math.max(0, noteDrag.origTop + dy) + "px";
+});
+
+document.addEventListener("mouseup", async () => {
+  if (!noteDrag) return;
+  const d = noteDrag;
+  noteDrag = null;
+  if (d.moved) {
+    d.el.classList.remove("dragging");
+    const snapped = snapNote(parseFloat(d.el.style.left), parseFloat(d.el.style.top));
+    d.el.style.left = snapped.x + "px";
+    d.el.style.top = snapped.y + "px";
+    notes = await hexClip.updateNote(d.id, { nx: snapped.x, ny: snapped.y });
+  } else {
+    activeNoteId = d.id; // plain click → select
+    renderNotes();
+  }
+});
+
+// Double-click a grid note to reset it back to the auto flow.
+notesListEl.addEventListener("dblclick", async (e) => {
+  if (noteView !== "grid") return;
+  const card = e.target.closest(".note-card");
+  if (card) { notes = await hexClip.updateNote(Number(card.dataset.note), { nx: null, ny: null }); renderNotes(); }
 });
 
 function setNoteView(v) {
@@ -519,7 +620,10 @@ $("list").addEventListener("click", async (e) => {
   }
 });
 
-window.addEventListener("resize", () => { if (view === "hex") render(); });
+window.addEventListener("resize", () => {
+  if (view === "hex") render();
+  else if (view === "notes" && noteView === "grid") renderNotes();
+});
 
 // Hex drag-to-move (delegated across the Saved + main grids). A small move
 // threshold distinguishes a drag from a click (which toggles selection).
@@ -558,7 +662,10 @@ document.addEventListener("mouseup", async () => {
   drag = null;
   if (d.moved) {
     d.el.classList.remove("dragging");
-    history = await hexClip.setPos(d.id, Math.round(parseFloat(d.el.style.left)), Math.round(parseFloat(d.el.style.top)));
+    const snapped = snapHex(parseFloat(d.el.style.left), parseFloat(d.el.style.top));
+    d.el.style.left = snapped.x + "px";   // animate to the magnetic slot
+    d.el.style.top = snapped.y + "px";
+    history = await hexClip.setPos(d.id, snapped.x, snapped.y);
   } else {
     toggleSelect(d.id); // plain click → (de)select
   }

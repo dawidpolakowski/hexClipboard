@@ -1,7 +1,7 @@
 {
-  "name": "hexclipboard",
+  "name": "hexbench",
   "version": "1.0.0",
-  "description": "Clipboard history manager with hex grid browser",
+  "description": "Hexbench — a honeycomb workbench for your clipboard, notes, and text tools",
   "main": "src/main/main.js",
   "author": "Dawid Polakowski",
   "license": "MIT",
@@ -29,8 +29,8 @@
     "globals": "^15.0.0"
   },
   "build": {
-    "appId": "com.dawidpolakowski.hexclipboard",
-    "productName": "hexClipboard",
+    "appId": "com.dawidpolakowski.hexbench",
+    "productName": "Hexbench",
     "publish": {
       "provider": "github",
       "owner": "dawidpolakowski",

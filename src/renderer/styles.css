@@ -383,7 +383,7 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
   position: absolute;
   cursor: grab;
   transform-origin: center;
-  transition: transform 0.16s cubic-bezier(.2,.8,.2,1), filter 0.16s ease;
+  transition: transform 0.16s cubic-bezier(.2,.8,.2,1), filter 0.16s ease, left 0.18s ease, top 0.18s ease;
 }
 .hex-cell.dragging { cursor: grabbing; z-index: 6; transition: none; }
 .hex-cell.dragging .hex-bg { filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5)); }
@@ -662,15 +662,13 @@ body.github-dark .options-panel, body.light .options-panel { background: var(--c
   flex-shrink: 0;
   border-right: 1px solid var(--card-border);
 }
-/* Grid mode: wrapping rectangles, distinct from the hexes */
+/* Grid mode: absolutely-positioned rectangles (draggable, magnetic) */
 .notes-list.grid-mode {
   flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-content: flex-start;
+  position: relative;
   border-right: 1px solid var(--card-border);
 }
+.notes-spacer { position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none; }
 .note-card {
   padding: 9px 10px;
   border: 1px solid transparent;
@@ -680,12 +678,19 @@ body.github-dark .options-panel, body.light .options-panel { background: var(--c
   transition: background 0.1s, border-color 0.1s;
 }
 .notes-list.grid-mode .note-card {
-  width: 168px;
-  height: 96px;
+  position: absolute;
   margin-bottom: 0;
+  cursor: grab;
   border-color: var(--card-border);
   background: var(--card-bg);
   overflow: hidden;
+  transition: left 0.18s ease, top 0.18s ease, background 0.1s, border-color 0.1s;
+}
+.notes-list.grid-mode .note-card.dragging {
+  cursor: grabbing;
+  z-index: 5;
+  transition: none;
+  box-shadow: var(--shadow-card);
 }
 .notes-list.grid-mode .note-card-preview { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .note-card:hover { background: var(--card-bg); border-color: var(--card-border); }

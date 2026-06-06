@@ -1,4 +1,4 @@
-// Dependency-free icon generator for hexClipboard.
+// Dependency-free icon generator for Hexbench.
 // Draws a gold hexagon mark and writes app icons (PNG + ICO), tray icons, and an SVG.
 const zlib = require("zlib");
 const fs = require("fs");
@@ -112,7 +112,7 @@ function encodeIco(pngs) {
 // ── SVG ──────────────────────────────────────────────────────────────────────
 const SVG = `<svg width="256" height="256" viewBox="0 0 20 23" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M10 1L19 6V17L10 22L1 17V6L10 1Z" fill="#0c0c10" stroke="#d4af37" stroke-width="1.5" stroke-linejoin="round"/>
-  <text x="10" y="15" text-anchor="middle" font-size="7" font-weight="700" fill="#d4af37" font-family="sans-serif">HX</text>
+  <text x="10" y="15" text-anchor="middle" font-size="7" font-weight="700" fill="#d4af37" font-family="sans-serif">HB</text>
 </svg>
 `;
 

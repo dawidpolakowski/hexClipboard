@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;" />
-  <title>hexClipboard</title>
+  <title>Hexbench</title>
   <link rel="icon" type="image/svg+xml" href="../../assets/icon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,9 +18,9 @@
     <div class="titlebar-brand">
       <svg class="brand-hex" viewBox="0 0 20 23" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M10 1L19 6V17L10 22L1 17V6L10 1Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-        <text x="10" y="15" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor" font-family="inherit">HX</text>
+        <text x="10" y="15" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor" font-family="inherit">HB</text>
       </svg>
-      <span class="titlebar-name">hexClipboard</span>
+      <span class="titlebar-name">Hexbench</span>
       <span id="privateBadge" class="private-badge hidden">● private</span>
     </div>
   </div>
@@ -75,7 +75,7 @@
         <div id="optionsPanel" class="options-panel hidden">
           <div class="options-header">
             <span class="options-header-title">Options</span>
-            <button id="aboutBtn" class="options-help-btn" type="button" title="About hexClipboard">?</button>
+            <button id="aboutBtn" class="options-help-btn" type="button" title="About Hexbench">?</button>
           </div>
 
           <div class="options-sep"></div>
@@ -194,22 +194,23 @@
 
   <!-- About dialog -->
   <div id="aboutDialog" class="about-backdrop hidden">
-    <div class="about-panel" role="dialog" aria-label="About hexClipboard">
+    <div class="about-panel" role="dialog" aria-label="About Hexbench">
       <div class="about-head">
         <svg class="about-icon" viewBox="0 0 20 23" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M10 1L19 6V17L10 22L1 17V6L10 1Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <text x="10" y="15" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor" font-family="inherit">HX</text>
+          <text x="10" y="15" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor" font-family="inherit">HB</text>
         </svg>
         <div>
-          <div class="about-name">hexClipboard</div>
+          <div class="about-name">Hexbench</div>
           <div class="about-version" id="aboutVersion">v1.0.0</div>
         </div>
       </div>
 
       <p class="about-desc">
-        A clipboard history manager that sits in your system tray and captures
-        every copy — text, links, and code. Search, pin favourites, and browse
-        your whole history in the signature hexagonal grid.
+        A honeycomb workbench for your clipboard and notes. Hexbench sits in the
+        tray and captures every copy — text, links, and code — then lets you
+        search, pin, browse the hex grid, gather snippets in the workbench, and
+        keep plain-text or list notes alongside.
       </p>
 
       <div class="about-scroll">
