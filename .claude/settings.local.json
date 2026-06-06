@@ -21,7 +21,14 @@
       "Bash(node --check src/main/main.js)",
       "Bash(node --check src/main/ipc.js)",
       "Bash(node --check src/main/window.js)",
-      "Bash(node --check src/main/store.js)"
+      "Bash(node --check src/main/store.js)",
+      "Bash(node --check src/preload/preload.js)",
+      "Read(//c/Users/hexfo/AppData/Roaming/hexclipboard/**)",
+      "Read(//c/Users/hexfo/AppData/Roaming/hexClipboard/**)",
+      "Read(//c/Users/hexfo/AppData/Roaming/**)",
+      "Bash(rm -f /tmp/hexrun.log)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)"
     ]
   }
 }
