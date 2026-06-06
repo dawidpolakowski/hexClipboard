@@ -3,7 +3,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("hexClip", {
   // History
   getHistory:   ()   => ipcRenderer.invoke("get-history"),
-  copyItem:     (id) => ipcRenderer.invoke("copy-item", id),
+  copyItem:     (id)   => ipcRenderer.invoke("copy-item", id),
+  copyText:     (text) => ipcRenderer.invoke("copy-text", text),
   pinItem:      (id) => ipcRenderer.invoke("pin-item", id),
   deleteItem:   (id) => ipcRenderer.invoke("delete-item", id),
   clearHistory: ()   => ipcRenderer.invoke("clear-history"),

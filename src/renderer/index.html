@@ -138,8 +138,22 @@
       <div id="grid" class="hex-grid"></div>
     </div>
     <div id="detail" class="detail">
-      <div class="detail-empty">Select a hex cell<br>to preview</div>
+      <div class="detail-empty">Click hex cells to<br>select &amp; gather them</div>
     </div>
+  </div>
+
+  <!-- Workbench: plain text area for combining / transforming selected items -->
+  <div id="workbench" class="workbench">
+    <div class="workbench-head">
+      <span class="workbench-title">Workbench</span>
+      <span id="workbenchCount" class="workbench-count">0 selected</span>
+      <div class="workbench-actions">
+        <button id="workbenchCopy" class="btn-primary btn-sm">Copy</button>
+        <button id="workbenchClear" class="btn-secondary btn-sm">Clear</button>
+      </div>
+    </div>
+    <textarea id="workbenchText" class="workbench-text" spellcheck="false"
+      placeholder="Select hexes to gather their text here — or type / paste to edit and transform, then Copy."></textarea>
   </div>
 
   <!-- About dialog -->

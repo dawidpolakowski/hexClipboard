@@ -19,6 +19,14 @@ function registerIpcHandlers(deps = {}) {
     }
   });
 
+  // Copy arbitrary text (workbench: combined / edited selection).
+  ipcMain.handle("copy-text", (_, text) => {
+    if (typeof text === "string" && text.length) {
+      clipboard.writeText(text);
+      if (setLastText) setLastText(text);
+    }
+  });
+
   ipcMain.handle("pin-item", (_, id) => store.togglePin(id));
   ipcMain.handle("delete-item", (_, id) => store.deleteItem(id));
   ipcMain.handle("clear-history", () => store.clearHistory());

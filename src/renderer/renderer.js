@@ -3,7 +3,7 @@
 let history = [];
 let view = "list";      // "list" | "hex"
 let filter = "all";     // all | text | link | code | pinned
-let selectedId = null;  // hex view selection
+let selected = [];      // hex view multi-selection (item ids, in selection order)
 
 const $ = (id) => document.getElementById(id);
 
@@ -96,49 +96,120 @@ function hexPoints(cx, cy, r) {
 }
 
 function renderHex(items) {
-  const W = 90, H = 80, cx = W / 2, cy = H / 2, r = 36;
-  $("grid").innerHTML = items.map((item) => {
-    const flat = item.text.replace(/\n/g, " ");
-    const trimmed = flat.length > 22 ? flat.slice(0, 22) + "…" : flat;
-    const lines = trimmed.match(/.{1,12}/g) || [""];
-    let rows = "";
-    lines.slice(0, 3).forEach((l, i) => {
-      rows += `<text x="${cx}" y="${cy - 8 + i * 14}" text-anchor="middle" font-size="9">${esc(l)}</text>`;
+  const grid = $("grid");
+  const wrap = grid.parentElement;
+
+  // Pointy-top hexagon geometry — a true interlocking honeycomb (plaster grid).
+  const r = 50;                       // circumradius
+  const w = Math.sqrt(3) * r;         // hex width  (horizontal center spacing)
+  const h = 2 * r;                    // hex height
+  const vStep = 1.5 * r;              // row-to-row vertical spacing
+  const pad = 10;
+  const cx = w / 2, cy = h / 2;
+
+  const avail = (wrap.clientWidth || 760) - pad * 2;
+  const cols = Math.max(1, Math.floor((avail - w / 2) / w));
+
+  let html = "";
+  items.forEach((item, idx) => {
+    const row = Math.floor(idx / cols);
+    const col = idx % cols;
+    const x = pad + col * w + (row % 2 ? w / 2 : 0); // odd rows nestle into the gaps
+    const y = pad + row * vStep;
+
+    const flat = item.text.replace(/\s+/g, " ").trim();
+    const trimmed = flat.length > 60 ? flat.slice(0, 60) + "…" : flat;
+    const lines = (trimmed.match(/.{1,13}/g) || [""]).slice(0, 4);
+    const startY = cy - (lines.length - 1) * 7 + 3;
+    let textRows = "";
+    lines.forEach((l, i) => {
+      textRows += `<text x="${cx}" y="${(startY + i * 14).toFixed(1)}" text-anchor="middle" font-size="9.5">${esc(l)}</text>`;
     });
-    const cls = `hex-cell${item.pinned ? " pinned" : ""}${item.id === selectedId ? " active" : ""}`;
-    return `<div class="${cls}" data-id="${item.id}">
-      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-        <polygon class="hex-bg" points="${hexPoints(cx, cy, r)}" fill="${hexFill(item.type)}" fill-opacity="0.18" stroke="var(--card-border)" stroke-width="1"/>
-        ${rows}
+
+    const cls = `hex-cell${item.pinned ? " pinned" : ""}${selected.includes(item.id) ? " active" : ""}`;
+    html += `<div class="${cls}" data-id="${item.id}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px">
+      <svg width="${w.toFixed(1)}" height="${h.toFixed(1)}" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">
+        <polygon class="hex-bg" points="${hexPoints(cx, cy, r)}" fill="${hexFill(item.type)}" fill-opacity="0.2"/>
+        ${textRows}
       </svg>
     </div>`;
-  }).join("");
+  });
+
+  const totalRows = Math.ceil(items.length / cols) || 1;
+  grid.style.height = (pad * 2 + totalRows * vStep + (h - vStep)).toFixed(0) + "px";
+  grid.innerHTML = html;
 }
 
-function showDetail(id) {
-  const item = history.find((h) => h.id === id);
+// Toggle a hex cell in/out of the multi-selection.
+function toggleSelect(id) {
+  const i = selected.indexOf(id);
+  if (i === -1) selected.push(id);
+  else selected.splice(i, 1);
+  syncWorkbench();
+  renderDetail();
+  if (view === "hex") render();
+}
+
+function clearSelection() {
+  selected = [];
+  $("workbenchText").value = "";
+  syncWorkbench();
+  renderDetail();
+  render();
+}
+
+// Rebuild the bottom workbench text from the current selection.
+function syncWorkbench() {
+  const text = selected
+    .map((id) => history.find((h) => h.id === id))
+    .filter(Boolean)
+    .map((it) => it.text)
+    .join("\n\n");
+  $("workbenchText").value = text;
+  $("workbenchCount").textContent = `${selected.length} selected`;
+}
+
+// Right-side panel: lists every selected element with per-item copy/remove.
+function renderDetail() {
   const detail = $("detail");
-  if (!item) {
-    detail.innerHTML = '<div class="detail-empty">Select a hex cell<br>to preview</div>';
+  if (!selected.length) {
+    detail.innerHTML = '<div class="detail-empty">Click hex cells to<br>select &amp; gather them</div>';
     return;
   }
-  detail.innerHTML = `
-    <div class="detail-type">${item.type}${item.pinned ? " · pinned" : ""}</div>
-    <div class="detail-text">${esc(item.text)}</div>
-    <div class="detail-meta">${relTime(item.time)} · ${item.text.length} chars</div>
-    <div class="detail-actions">
-      <button class="btn-primary" id="dCopy">Copy</button>
-      <button class="btn-secondary" id="dPin">${item.pinned ? "Unpin" : "Pin"}</button>
-      <button class="btn-secondary" id="dDel">Delete</button>
+  let html = `<div class="detail-head">
+    <span class="detail-count">${selected.length} selected</span>
+    <div class="detail-head-actions">
+      <button class="btn-secondary btn-sm" id="dCopyAll">Copy all</button>
+      <button class="btn-secondary btn-sm" id="dClear">Clear</button>
+    </div>
+  </div>
+  <div class="detail-list">`;
+  selected.forEach((id) => {
+    const it = history.find((h) => h.id === id);
+    if (!it) return;
+    html += `<div class="detail-item">
+      <div class="detail-item-head">
+        <span class="badge badge-${it.type}">${it.type}</span>
+        <span class="detail-item-meta">${relTime(it.time)} · ${it.text.length} chars</span>
+      </div>
+      <div class="detail-item-text">${esc(it.text)}</div>
+      <div class="detail-item-actions">
+        <button class="btn-secondary btn-sm" data-sel-copy="${id}">Copy</button>
+        <button class="btn-secondary btn-sm" data-sel-remove="${id}">Remove</button>
+      </div>
     </div>`;
-  $("dCopy").onclick = () => hexClip.copyItem(id);
-  $("dPin").onclick = async () => { history = await hexClip.pinItem(id); render(); showDetail(id); };
-  $("dDel").onclick = async () => {
-    history = await hexClip.deleteItem(id);
-    selectedId = null;
-    render();
-    showDetail(null);
-  };
+  });
+  html += "</div>";
+  detail.innerHTML = html;
+
+  $("dCopyAll").onclick = () => hexClip.copyText($("workbenchText").value);
+  $("dClear").onclick = clearSelection;
+  detail.querySelectorAll("[data-sel-copy]").forEach((b) => {
+    b.onclick = () => hexClip.copyItem(Number(b.dataset.selCopy));
+  });
+  detail.querySelectorAll("[data-sel-remove]").forEach((b) => {
+    b.onclick = () => toggleSelect(Number(b.dataset.selRemove));
+  });
 }
 
 // ── View / filter switching ──────────────────────────────────────────────────
@@ -187,19 +258,22 @@ $("list").addEventListener("click", async (e) => {
   if (row) {
     const id = Number(row.dataset.id);
     await hexClip.copyItem(id);
+    // Copy only — keep the window open (no hide/minimize).
     row.classList.add("flash");
-    setTimeout(() => hexClip.windowHide(), 140);
+    setTimeout(() => row.classList.remove("flash"), 450);
   }
 });
 
+window.addEventListener("resize", () => { if (view === "hex") render(); });
+
 $("grid").addEventListener("click", (e) => {
   const cell = e.target.closest("[data-id]");
-  if (cell) {
-    selectedId = Number(cell.dataset.id);
-    render();
-    showDetail(selectedId);
-  }
+  if (cell) toggleSelect(Number(cell.dataset.id));
 });
+
+// Bottom workbench — plain editable text, copy / clear.
+$("workbenchCopy").onclick = () => hexClip.copyText($("workbenchText").value);
+$("workbenchClear").onclick = clearSelection;
 
 $("clearBtn").onclick = async () => { history = await hexClip.clearHistory(); render(); };
 
@@ -267,6 +341,8 @@ async function init() {
   reflectPrivate(await hexClip.getPrivateMode());
   setToggle($("startupToggle"), await hexClip.getLoginItem());
   history = await hexClip.getHistory();
+  syncWorkbench();
+  renderDetail();
   render();
 }
 
