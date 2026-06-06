@@ -4,6 +4,7 @@ let history = [];
 let view = "list";      // "list" | "hex"
 let filter = "all";     // all | text | link | code | pinned
 let selected = [];      // hex view multi-selection (item ids, in selection order)
+let animateGrid = true; // play the pop-in animation on the next full hex render
 
 const $ = (id) => document.getElementById(id);
 
@@ -24,16 +25,6 @@ function typeIcon(t) {
   if (t === "link") return "🔗";
   if (t === "code") return "⌥";
   return "⌨";
-}
-
-function cssVar(name) {
-  return getComputedStyle(document.body).getPropertyValue(name).trim();
-}
-
-function hexFill(t) {
-  if (t === "link") return cssVar("--link");
-  if (t === "code") return cssVar("--code");
-  return cssVar("--primary");
 }
 
 // ── Filtering ────────────────────────────────────────────────────────────────
@@ -109,6 +100,7 @@ function renderHex(items) {
 
   const avail = (wrap.clientWidth || 760) - pad * 2;
   const cols = Math.max(1, Math.floor((avail - w / 2) / w));
+  const anim = animateGrid;
 
   let html = "";
   items.forEach((item, idx) => {
@@ -126,10 +118,11 @@ function renderHex(items) {
       textRows += `<text x="${cx}" y="${(startY + i * 14).toFixed(1)}" text-anchor="middle" font-size="9.5">${esc(l)}</text>`;
     });
 
-    const cls = `hex-cell${item.pinned ? " pinned" : ""}${selected.includes(item.id) ? " active" : ""}`;
-    html += `<div class="${cls}" data-id="${item.id}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px">
+    const cls = `hex-cell${anim ? " anim" : ""}${item.pinned ? " pinned" : ""}${selected.includes(item.id) ? " active" : ""}`;
+    const delay = anim ? `;animation-delay:${Math.min(idx * 16, 480)}ms` : "";
+    html += `<div class="${cls}" data-id="${item.id}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px${delay}">
       <svg width="${w.toFixed(1)}" height="${h.toFixed(1)}" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">
-        <polygon class="hex-bg" points="${hexPoints(cx, cy, r)}" fill="${hexFill(item.type)}" fill-opacity="0.2"/>
+        <polygon class="hex-bg hex-${item.type}" points="${hexPoints(cx, cy, r)}"/>
         ${textRows}
       </svg>
     </div>`;
@@ -138,6 +131,7 @@ function renderHex(items) {
   const totalRows = Math.ceil(items.length / cols) || 1;
   grid.style.height = (pad * 2 + totalRows * vStep + (h - vStep)).toFixed(0) + "px";
   grid.innerHTML = html;
+  animateGrid = false; // only animate once per full render trigger
 }
 
 // Toggle a hex cell in/out of the multi-selection.
@@ -145,9 +139,11 @@ function toggleSelect(id) {
   const i = selected.indexOf(id);
   if (i === -1) selected.push(id);
   else selected.splice(i, 1);
+  // Toggle highlight on the cell directly — avoids replaying the pop-in animation.
+  const cell = $("grid").querySelector(`.hex-cell[data-id="${id}"]`);
+  if (cell) cell.classList.toggle("active", selected.includes(id));
   syncWorkbench();
   renderDetail();
-  if (view === "hex") render();
 }
 
 function clearSelection() {
@@ -155,7 +151,7 @@ function clearSelection() {
   $("workbenchText").value = "";
   syncWorkbench();
   renderDetail();
-  render();
+  $("grid").querySelectorAll(".hex-cell.active").forEach((c) => c.classList.remove("active"));
 }
 
 // Rebuild the bottom workbench text from the current selection.
@@ -215,6 +211,7 @@ function renderDetail() {
 // ── View / filter switching ──────────────────────────────────────────────────
 function setView(v) {
   view = v;
+  if (v === "hex") animateGrid = true;
   $("tabList").classList.toggle("tab-active", v === "list");
   $("tabHex").classList.toggle("tab-active", v === "hex");
   $("listView").classList.toggle("hidden", v !== "list");

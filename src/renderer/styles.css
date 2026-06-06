@@ -20,6 +20,9 @@
   --danger-glow:   rgba(188,76,0,0.2);
   --link:          #0969da;
   --code:          #1a7f37;
+  --hex-text:      #6e7781;
+  --hex-link:      #0969da;
+  --hex-code:      #1a7f37;
   --radius:        6px;
   --glass-blur:    blur(16px) saturate(180%);
   --shadow-card:   0 1px 0 rgba(31,35,40,0.04), 0 1px 3px rgba(31,35,40,0.06);
@@ -43,6 +46,9 @@ body.dark {
   --danger-glow:   rgba(247,129,102,0.28);
   --link:          #54aeff;
   --code:          #7ee787;
+  --hex-text:      #9aa0b3;
+  --hex-link:      #58a6ff;
+  --hex-code:      #7ee787;
   --shadow-card:   0 4px 20px rgba(0,0,0,0.5);
 }
 
@@ -64,6 +70,9 @@ body.github-dark {
   --danger-glow:   rgba(247,129,102,0.28);
   --link:          #54aeff;
   --code:          #7ee787;
+  --hex-text:      #7d8590;
+  --hex-link:      #58a6ff;
+  --hex-code:      #56d364;
   --shadow-card:   0 0 0 1px #21262d, 0 4px 20px rgba(1,4,9,0.5);
 }
 
@@ -353,18 +362,60 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
 /* ========================= */
 
 .hex-view { flex: 1; display: flex; overflow: hidden; }
-.hex-canvas-wrap { flex: 1; overflow: auto; padding: 10px; }
+.hex-canvas-wrap { flex: 1; overflow: auto; padding: 12px; }
 .hex-grid { position: relative; width: 100%; }
 
-.hex-cell { position: absolute; cursor: pointer; }
+.hex-cell {
+  position: absolute;
+  cursor: pointer;
+  transform-origin: center;
+  transition: transform 0.16s cubic-bezier(.2,.8,.2,1), filter 0.16s ease;
+}
 .hex-cell svg { display: block; overflow: visible; }
-.hex-cell svg text { pointer-events: none; fill: var(--text); font-family: 'JetBrains Mono', monospace; }
-.hex-bg { stroke: var(--card-border); stroke-width: 1; transition: filter 0.12s; }
-.hex-cell:hover { z-index: 2; }
-.hex-cell:hover .hex-bg { filter: brightness(1.3); }
-.hex-cell.pinned .hex-bg { stroke: var(--primary); stroke-width: 1.5; }
-.hex-cell.active { z-index: 3; }
-.hex-cell.active .hex-bg { stroke: var(--primary); stroke-width: 2.5; }
+.hex-cell svg text {
+  pointer-events: none;
+  fill: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+/* Per-type fills & strokes — color-mix keeps them theme-aware and "pro" */
+.hex-bg {
+  stroke-width: 1.2;
+  transition: fill 0.2s ease, stroke 0.2s ease, filter 0.16s ease;
+}
+.hex-bg.hex-text { fill: color-mix(in srgb, var(--hex-text) 14%, transparent); stroke: color-mix(in srgb, var(--hex-text) 50%, transparent); }
+.hex-bg.hex-link { fill: color-mix(in srgb, var(--hex-link) 16%, transparent); stroke: color-mix(in srgb, var(--hex-link) 58%, transparent); }
+.hex-bg.hex-code { fill: color-mix(in srgb, var(--hex-code) 16%, transparent); stroke: color-mix(in srgb, var(--hex-code) 58%, transparent); }
+
+/* Hover — lift, brighten, soft shadow */
+.hex-cell:hover { z-index: 2; transform: scale(1.08); }
+.hex-cell:hover .hex-bg { filter: brightness(1.22) saturate(1.15) drop-shadow(0 3px 8px rgba(0,0,0,0.35)); }
+
+/* Pinned */
+.hex-cell.pinned .hex-bg { stroke: var(--primary); stroke-width: 1.6; }
+
+/* Selected */
+.hex-cell.active { z-index: 3; transform: scale(1.05); }
+.hex-cell.active .hex-bg {
+  fill: color-mix(in srgb, var(--primary) 22%, transparent);
+  stroke: var(--primary);
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 7px var(--primary-glow));
+}
+
+/* Staggered pop-in (animation-delay set inline per cell) */
+@keyframes hexPop {
+  from { opacity: 0; transform: scale(0.4); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: scale(1); }
+}
+.hex-cell.anim { animation: hexPop 0.34s cubic-bezier(.2,.85,.25,1) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hex-cell, .hex-bg { transition: none; }
+  .hex-cell.anim { animation: none; }
+}
 
 .detail {
   flex-shrink: 0;

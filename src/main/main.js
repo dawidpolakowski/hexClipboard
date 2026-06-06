@@ -182,6 +182,9 @@ app.whenReady().then(() => {
   mainWindow = createWindow();
   createTray();
 
+  // Show the window on launch (rather than starting hidden in the tray).
+  mainWindow.once("ready-to-show", () => showWindow());
+
   registerIpcHandlers({
     getPrivateMode: () => isPrivateMode,
     setPrivateMode,
