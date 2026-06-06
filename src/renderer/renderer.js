@@ -21,6 +21,10 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function escAttr(s) {
+  return esc(s).replace(/"/g, "&quot;");
+}
+
 function typeIcon(t) {
   if (t === "link") return "🔗";
   if (t === "code") return "⌥";
@@ -47,11 +51,12 @@ function render() {
 
 function itemHTML(i) {
   const preview = i.text.replace(/\n/g, " ").slice(0, 120);
-  const pin = i.pinned && filter !== "pinned" ? '<span class="pin-pill">pinned</span>' : "";
+  const pin = i.pinned && filter !== "pinned" ? '<span class="pin-pill">saved</span>' : "";
+  const title = i.title ? `<span class="item-title">${esc(i.title)}</span>` : "";
   return `<div class="item" data-id="${i.id}">
     <span class="item-icon">${typeIcon(i.type)}</span>
     <div class="item-body">
-      <div class="item-text"><span class="badge badge-${i.type}">${i.type}</span>${esc(preview)}${pin}</div>
+      <div class="item-text">${title}<span class="badge badge-${i.type}">${i.type}</span>${esc(preview)}${pin}</div>
       <div class="item-meta">${relTime(i.time)} · ${i.text.length} chars</div>
     </div>
     <div class="item-actions">
@@ -102,21 +107,34 @@ function renderHex(items) {
   const cols = Math.max(1, Math.floor((avail - w / 2) / w));
   const anim = animateGrid;
 
+  // Saved (pinned) items float to the top; stable within each group.
+  const ordered = [...items].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+
   let html = "";
-  items.forEach((item, idx) => {
+  ordered.forEach((item, idx) => {
     const row = Math.floor(idx / cols);
     const col = idx % cols;
     const x = pad + col * w + (row % 2 ? w / 2 : 0); // odd rows nestle into the gaps
     const y = pad + row * vStep;
 
     const flat = item.text.replace(/\s+/g, " ").trim();
-    const trimmed = flat.length > 60 ? flat.slice(0, 60) + "…" : flat;
-    const lines = (trimmed.match(/.{1,13}/g) || [""]).slice(0, 4);
-    const startY = cy - (lines.length - 1) * 7 + 3;
+    const title = (item.title || "").trim();
     let textRows = "";
-    lines.forEach((l, i) => {
-      textRows += `<text x="${cx}" y="${(startY + i * 14).toFixed(1)}" text-anchor="middle" font-size="9.5">${esc(l)}</text>`;
-    });
+    if (title) {
+      // Title-led layout: bold title (up to 2 lines) + a short preview.
+      const tLines = (title.match(/.{1,13}/g) || []).slice(0, 2);
+      const pLines = ((flat.length > 26 ? flat.slice(0, 26) + "…" : flat).match(/.{1,13}/g) || []).slice(0, 2);
+      let y = cy - (tLines.length + pLines.length - 1) * 7 - 1;
+      tLines.forEach((l) => { textRows += `<text class="hex-title" x="${cx}" y="${y.toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700">${esc(l)}</text>`; y += 13; });
+      pLines.forEach((l) => { textRows += `<text class="hex-sub" x="${cx}" y="${y.toFixed(1)}" text-anchor="middle" font-size="8.5">${esc(l)}</text>`; y += 12; });
+    } else {
+      const trimmed = flat.length > 60 ? flat.slice(0, 60) + "…" : flat;
+      const lines = (trimmed.match(/.{1,13}/g) || [""]).slice(0, 4);
+      const startY = cy - (lines.length - 1) * 7 + 3;
+      lines.forEach((l, i) => {
+        textRows += `<text x="${cx}" y="${(startY + i * 14).toFixed(1)}" text-anchor="middle" font-size="9.5">${esc(l)}</text>`;
+      });
+    }
 
     const cls = `hex-cell${anim ? " anim" : ""}${item.pinned ? " pinned" : ""}${selected.includes(item.id) ? " active" : ""}`;
     const delay = anim ? `;animation-delay:${Math.min(idx * 16, 480)}ms` : "";
@@ -184,14 +202,16 @@ function renderDetail() {
   selected.forEach((id) => {
     const it = history.find((h) => h.id === id);
     if (!it) return;
-    html += `<div class="detail-item">
+    html += `<div class="detail-item${it.pinned ? " saved" : ""}">
       <div class="detail-item-head">
         <span class="badge badge-${it.type}">${it.type}</span>
         <span class="detail-item-meta">${relTime(it.time)} · ${it.text.length} chars</span>
       </div>
+      <input class="detail-title-input" data-title="${id}" value="${escAttr(it.title || "")}" placeholder="Add a title…" spellcheck="false" />
       <div class="detail-item-text">${esc(it.text)}</div>
       <div class="detail-item-actions">
         <button class="btn-secondary btn-sm" data-sel-copy="${id}">Copy</button>
+        <button class="btn-secondary btn-sm${it.pinned ? " btn-saved" : ""}" data-sel-save="${id}">${it.pinned ? "★ Saved" : "☆ Save"}</button>
         <button class="btn-secondary btn-sm" data-sel-remove="${id}">Remove</button>
         <button class="btn-secondary btn-sm btn-danger" data-sel-delete="${id}">Delete</button>
       </div>
@@ -206,11 +226,20 @@ function renderDetail() {
   detail.querySelectorAll("[data-sel-copy]").forEach((b) => {
     b.onclick = () => hexClip.copyItem(Number(b.dataset.selCopy));
   });
+  detail.querySelectorAll("[data-sel-save]").forEach((b) => {
+    b.onclick = async () => { history = await hexClip.pinItem(Number(b.dataset.selSave)); renderDetail(); render(); };
+  });
   detail.querySelectorAll("[data-sel-remove]").forEach((b) => {
     b.onclick = () => toggleSelect(Number(b.dataset.selRemove));
   });
   detail.querySelectorAll("[data-sel-delete]").forEach((b) => {
     b.onclick = () => deleteHistoryItem(Number(b.dataset.selDelete));
+  });
+  detail.querySelectorAll("[data-title]").forEach((inp) => {
+    inp.onchange = async () => {
+      history = await hexClip.setTitle(Number(inp.dataset.title), inp.value.trim());
+      render();
+    };
   });
 }
 

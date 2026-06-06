@@ -30,6 +30,13 @@ function togglePin(id) {
   return setHistory(history);
 }
 
+function setTitle(id, title) {
+  const history = getHistory();
+  const item = history.find((h) => h.id === id);
+  if (item) item.title = title || "";
+  return setHistory(history);
+}
+
 function deleteItem(id) {
   return setHistory(getHistory().filter((h) => h.id !== id));
 }
@@ -49,6 +56,7 @@ module.exports = {
   setHistory,
   addToHistory,
   togglePin,
+  setTitle,
   deleteItem,
   clearHistory,
   findItem,

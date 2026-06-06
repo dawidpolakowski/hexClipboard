@@ -5,7 +5,8 @@ contextBridge.exposeInMainWorld("hexClip", {
   getHistory:   ()   => ipcRenderer.invoke("get-history"),
   copyItem:     (id)   => ipcRenderer.invoke("copy-item", id),
   copyText:     (text) => ipcRenderer.invoke("copy-text", text),
-  pinItem:      (id) => ipcRenderer.invoke("pin-item", id),
+  pinItem:      (id)        => ipcRenderer.invoke("pin-item", id),
+  setTitle:     (id, title) => ipcRenderer.invoke("set-title", id, title),
   deleteItem:   (id) => ipcRenderer.invoke("delete-item", id),
   clearHistory: ()   => ipcRenderer.invoke("clear-history"),
 

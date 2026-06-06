@@ -28,6 +28,7 @@ function registerIpcHandlers(deps = {}) {
   });
 
   ipcMain.handle("pin-item", (_, id) => store.togglePin(id));
+  ipcMain.handle("set-title", (_, id, title) => store.setTitle(id, title));
   ipcMain.handle("delete-item", (_, id) => store.deleteItem(id));
   ipcMain.handle("clear-history", () => store.clearHistory());
 

@@ -340,6 +340,8 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
 .act-btn:hover { color: var(--text); border-color: var(--text-muted); }
 .act-btn.pinned { color: var(--primary); border-color: var(--primary); }
 
+.item-title { font-weight: 600; color: var(--primary); margin-right: 6px; }
+
 .badge {
   display: inline-block;
   font-size: 9px;
@@ -378,6 +380,8 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
   font-family: 'JetBrains Mono', monospace;
   font-weight: 500;
 }
+.hex-cell svg text.hex-title { fill: var(--primary); font-family: 'Inter', sans-serif; }
+.hex-cell svg text.hex-sub { fill: var(--text-muted); }
 
 /* Per-type fills & strokes — color-mix keeps them theme-aware and "pro" */
 .hex-bg {
@@ -392,17 +396,19 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
 .hex-cell:hover { z-index: 2; transform: scale(1.08); }
 .hex-cell:hover .hex-bg { filter: brightness(1.22) saturate(1.15) drop-shadow(0 3px 8px rgba(0,0,0,0.35)); }
 
-/* Pinned */
-.hex-cell.pinned .hex-bg { stroke: var(--primary); stroke-width: 1.6; }
+/* Saved (pinned) — gold ring + corner star */
+.hex-cell.pinned .hex-bg { stroke: var(--primary); stroke-width: 1.8; }
 
-/* Selected */
-.hex-cell.active { z-index: 3; transform: scale(1.05); }
+/* Selected — solid (opaque) fill + ring + glow + lift */
+.hex-cell.active { z-index: 3; transform: scale(1.07); }
 .hex-cell.active .hex-bg {
-  fill: color-mix(in srgb, var(--primary) 22%, transparent);
+  fill: color-mix(in srgb, var(--primary) 34%, var(--bg)); /* opaque: mix of two solid colors */
   stroke: var(--primary);
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 7px var(--primary-glow));
+  stroke-width: 2.6;
+  filter: drop-shadow(0 0 10px var(--primary-glow));
 }
+.hex-cell.active svg text { fill: var(--text); font-weight: 600; }
+.hex-cell.active .hex-title { fill: var(--primary); }
 
 /* Staggered pop-in (animation-delay set inline per cell) */
 @keyframes hexPop {
@@ -439,8 +445,16 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
   background: var(--card-bg);
   padding: 8px 10px;
 }
+.detail-item.saved { border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
 .detail-item-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .detail-item-meta { font-size: 10px; color: var(--text-muted); }
+.detail-title-input {
+  width: 100%;
+  height: 28px;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
 .detail-item-text {
   font-size: 12px;
   line-height: 1.5;
@@ -452,12 +466,14 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
   user-select: text;
   font-family: 'JetBrains Mono', monospace;
 }
-.detail-item-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.detail-item-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 
 .btn-sm { height: 26px; font-size: 12px; padding: 0 10px; }
 
 .btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 .btn-danger:hover { color: var(--danger); background: var(--danger-glow); border-color: var(--danger); }
+
+.btn-saved { color: var(--primary); border-color: var(--primary); background: var(--primary-subtle); }
 
 /* ========================= */
 /* Workbench (bottom)        */
