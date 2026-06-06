@@ -41,7 +41,16 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, "../renderer/index.html"));
 
-  if (isDev) win.webContents.openDevTools({ mode: "detach" });
+  if (isDev) {
+    win.webContents.openDevTools({ mode: "detach" });
+    // Surface renderer console + load failures in the terminal during dev.
+    win.webContents.on("console-message", (_e, level, message, line, source) => {
+      if (level >= 2) console.error(`[renderer] ${source}:${line} ${message}`);
+    });
+    win.webContents.on("did-fail-load", (_e, code, desc) => {
+      console.error(`[renderer] did-fail-load ${code} ${desc}`);
+    });
+  }
 
   // Persist size & position on change.
   const saveState = () => {
@@ -63,4 +72,24 @@ function createWindow() {
   return win;
 }
 
-module.exports = { createWindow };
+// A standalone plain-text window for a single note.
+function createNoteWindow(noteId) {
+  const win = new BrowserWindow({
+    width: 540,
+    height: 600,
+    minWidth: 320,
+    minHeight: 260,
+    title: "Note",
+    icon: ICON_PATH,
+    backgroundColor: "#0c0c10",
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  win.loadFile(path.join(__dirname, "../renderer/note.html"), { search: `id=${noteId}` });
+  return win;
+}
+
+module.exports = { createWindow, createNoteWindow };

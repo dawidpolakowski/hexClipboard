@@ -47,6 +47,13 @@
       </svg>
       <span class="tab-label">Hex grid</span>
     </button>
+    <button id="tabNotes" class="tab-btn" title="Notes">
+      <svg class="tab-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        <line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span class="tab-label">Notes</span>
+    </button>
 
     <input type="text" id="search" placeholder="Search clipboard…" autocomplete="off" spellcheck="false" />
 
@@ -118,7 +125,7 @@
   </div>
 
   <!-- Filter chips -->
-  <div class="filter-row">
+  <div class="filter-row" id="filterRow">
     <button class="filter-chip filter-active" data-filter="all">All</button>
     <button class="filter-chip" data-filter="text">Text</button>
     <button class="filter-chip" data-filter="link">Links</button>
@@ -135,10 +142,33 @@
   <!-- Hex grid view -->
   <div id="hexView" class="hex-view hidden">
     <div class="hex-canvas-wrap">
+      <div id="savedSection" class="saved-section hidden">
+        <div class="saved-label">★ Saved</div>
+        <div id="savedGrid" class="hex-grid"></div>
+        <div class="saved-divider"></div>
+      </div>
       <div id="grid" class="hex-grid"></div>
     </div>
     <div id="detail" class="detail">
       <div class="detail-empty">Click hex cells to<br>select &amp; gather them</div>
+    </div>
+  </div>
+
+  <!-- Notes view -->
+  <div id="notesView" class="notes-view hidden">
+    <div class="notes-header">
+      <span id="notesCount" class="notes-count">No notes</span>
+      <div class="note-view-toggle">
+        <button id="noteViewList" class="note-view-btn active">List</button>
+        <button id="noteViewGrid" class="note-view-btn">Grid</button>
+      </div>
+      <button id="newNoteBtn" class="btn-primary btn-sm">+ New note</button>
+    </div>
+    <div class="notes-body">
+      <div id="notesList" class="notes-list"></div>
+      <div id="noteEditor" class="note-editor">
+        <div class="note-editor-empty">Select a note, or create one</div>
+      </div>
     </div>
   </div>
 
@@ -148,7 +178,13 @@
       <span class="workbench-title">Workbench</span>
       <span id="workbenchCount" class="workbench-count">0 selected</span>
       <div class="workbench-actions">
+        <div class="wb-sizes" title="Resize the workbench">
+          <button id="wbMin" class="wb-size-btn" title="1 line">S</button>
+          <button id="wbMid" class="wb-size-btn" title="Default">M</button>
+          <button id="wbMax" class="wb-size-btn" title="80% of window">L</button>
+        </div>
         <button id="workbenchCopy" class="btn-primary btn-sm">Copy</button>
+        <button id="workbenchToNote" class="btn-secondary btn-sm">Save to note</button>
         <button id="workbenchClear" class="btn-secondary btn-sm">Clear</button>
       </div>
     </div>

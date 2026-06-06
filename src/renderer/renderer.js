@@ -1,10 +1,18 @@
 /* global hexClip */
 
 let history = [];
-let view = "list";      // "list" | "hex"
+let notes = [];
+let activeNoteId = null;
+let noteView = "list"; // "list" | "grid"
+let view = "list";      // "list" | "hex" | "notes"
 let filter = "all";     // all | text | link | code | pinned
 let selected = [];      // hex view multi-selection (item ids, in selection order)
 let animateGrid = true; // play the pop-in animation on the next full hex render
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -43,6 +51,7 @@ function filtered() {
 
 // ── Render ───────────────────────────────────────────────────────────────────
 function render() {
+  if (view === "notes") { renderNotes(); return; }
   const items = filtered();
   $("count").textContent = `${items.length} item${items.length !== 1 ? "s" : ""}`;
   if (view === "list") renderList(items);
@@ -91,64 +100,86 @@ function hexPoints(cx, cy, r) {
   }).join(" ");
 }
 
-function renderHex(items) {
-  const grid = $("grid");
-  const wrap = grid.parentElement;
+// Pointy-top hexagon geometry — a true interlocking honeycomb (plaster grid).
+const HEX_R = 50;
+const HEX_W = Math.sqrt(3) * HEX_R;
+const HEX_H = 2 * HEX_R;
+const HEX_VSTEP = 1.5 * HEX_R;
+const HEX_PAD = 10;
 
-  // Pointy-top hexagon geometry — a true interlocking honeycomb (plaster grid).
-  const r = 50;                       // circumradius
-  const w = Math.sqrt(3) * r;         // hex width  (horizontal center spacing)
-  const h = 2 * r;                    // hex height
-  const vStep = 1.5 * r;              // row-to-row vertical spacing
-  const pad = 10;
-  const cx = w / 2, cy = h / 2;
+function hexTextRows(item) {
+  const cx = HEX_W / 2, cy = HEX_H / 2;
+  const flat = item.text.replace(/\s+/g, " ").trim();
+  const title = (item.title || "").trim();
+  let rows = "";
+  if (title) {
+    const tLines = (title.match(/.{1,13}/g) || []).slice(0, 2);
+    const pLines = ((flat.length > 26 ? flat.slice(0, 26) + "…" : flat).match(/.{1,13}/g) || []).slice(0, 2);
+    let y = cy - (tLines.length + pLines.length - 1) * 7 - 1;
+    tLines.forEach((l) => { rows += `<text class="hex-title" x="${cx}" y="${y.toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700">${esc(l)}</text>`; y += 13; });
+    pLines.forEach((l) => { rows += `<text class="hex-sub" x="${cx}" y="${y.toFixed(1)}" text-anchor="middle" font-size="8.5">${esc(l)}</text>`; y += 12; });
+  } else {
+    const trimmed = flat.length > 60 ? flat.slice(0, 60) + "…" : flat;
+    const lines = (trimmed.match(/.{1,13}/g) || [""]).slice(0, 4);
+    const startY = cy - (lines.length - 1) * 7 + 3;
+    lines.forEach((l, i) => {
+      rows += `<text x="${cx}" y="${(startY + i * 14).toFixed(1)}" text-anchor="middle" font-size="9.5">${esc(l)}</text>`;
+    });
+  }
+  return rows;
+}
 
-  const avail = (wrap.clientWidth || 760) - pad * 2;
-  const cols = Math.max(1, Math.floor((avail - w / 2) / w));
-  const anim = animateGrid;
-
-  // Saved (pinned) items float to the top; stable within each group.
-  const ordered = [...items].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-
+// Lay a set of items into a honeycomb inside `container`. Items with custom
+// hx/hy (dragged) are placed absolutely; the rest flow into open slots.
+function layoutHoneycomb(container, items, anim) {
+  const wrap = container.closest(".hex-canvas-wrap");
+  const avail = (wrap.clientWidth || 760) - HEX_PAD * 2;
+  const cols = Math.max(1, Math.floor((avail - HEX_W / 2) / HEX_W));
+  let slot = 0;
+  let maxBottom = 0;
   let html = "";
-  ordered.forEach((item, idx) => {
-    const row = Math.floor(idx / cols);
-    const col = idx % cols;
-    const x = pad + col * w + (row % 2 ? w / 2 : 0); // odd rows nestle into the gaps
-    const y = pad + row * vStep;
 
-    const flat = item.text.replace(/\s+/g, " ").trim();
-    const title = (item.title || "").trim();
-    let textRows = "";
-    if (title) {
-      // Title-led layout: bold title (up to 2 lines) + a short preview.
-      const tLines = (title.match(/.{1,13}/g) || []).slice(0, 2);
-      const pLines = ((flat.length > 26 ? flat.slice(0, 26) + "…" : flat).match(/.{1,13}/g) || []).slice(0, 2);
-      let y = cy - (tLines.length + pLines.length - 1) * 7 - 1;
-      tLines.forEach((l) => { textRows += `<text class="hex-title" x="${cx}" y="${y.toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700">${esc(l)}</text>`; y += 13; });
-      pLines.forEach((l) => { textRows += `<text class="hex-sub" x="${cx}" y="${y.toFixed(1)}" text-anchor="middle" font-size="8.5">${esc(l)}</text>`; y += 12; });
+  items.forEach((item, idx) => {
+    const moved = Number.isFinite(item.hx) && Number.isFinite(item.hy);
+    let x, y;
+    if (moved) {
+      x = item.hx; y = item.hy;
     } else {
-      const trimmed = flat.length > 60 ? flat.slice(0, 60) + "…" : flat;
-      const lines = (trimmed.match(/.{1,13}/g) || [""]).slice(0, 4);
-      const startY = cy - (lines.length - 1) * 7 + 3;
-      lines.forEach((l, i) => {
-        textRows += `<text x="${cx}" y="${(startY + i * 14).toFixed(1)}" text-anchor="middle" font-size="9.5">${esc(l)}</text>`;
-      });
+      const row = Math.floor(slot / cols), col = slot % cols;
+      x = HEX_PAD + col * HEX_W + (row % 2 ? HEX_W / 2 : 0);
+      y = HEX_PAD + row * HEX_VSTEP;
+      slot++;
     }
+    maxBottom = Math.max(maxBottom, y + HEX_H);
 
-    const cls = `hex-cell${anim ? " anim" : ""}${item.pinned ? " pinned" : ""}${selected.includes(item.id) ? " active" : ""}`;
-    const delay = anim ? `;animation-delay:${Math.min(idx * 16, 480)}ms` : "";
-    html += `<div class="${cls}" data-id="${item.id}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px${delay}">
-      <svg width="${w.toFixed(1)}" height="${h.toFixed(1)}" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">
-        <polygon class="hex-bg hex-${item.type}" points="${hexPoints(cx, cy, r)}"/>
-        ${textRows}
+    const cls = `hex-cell${anim && !moved ? " anim" : ""}${moved ? " moved" : ""}${item.pinned ? " pinned" : ""}${selected.includes(item.id) ? " active" : ""}`;
+    const delay = anim && !moved ? `;animation-delay:${Math.min(idx * 16, 480)}ms` : "";
+    html += `<div class="${cls}" data-id="${item.id}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;width:${HEX_W.toFixed(1)}px;height:${HEX_H.toFixed(1)}px${delay}">
+      <svg width="${HEX_W.toFixed(1)}" height="${HEX_H.toFixed(1)}" viewBox="0 0 ${HEX_W.toFixed(1)} ${HEX_H.toFixed(1)}">
+        <polygon class="hex-bg hex-${item.type}" points="${hexPoints(HEX_W / 2, HEX_H / 2, HEX_R)}"/>
+        ${hexTextRows(item)}
       </svg>
     </div>`;
   });
 
-  const totalRows = Math.ceil(items.length / cols) || 1;
-  grid.style.height = (pad * 2 + totalRows * vStep + (h - vStep)).toFixed(0) + "px";
-  grid.innerHTML = html;
+  container.style.height = (maxBottom + HEX_PAD).toFixed(0) + "px";
+  container.innerHTML = html;
+}
+
+function renderHex(items) {
+  const anim = animateGrid;
+  const pinned = items.filter((i) => i.pinned); // "Saved" section
+  const rest = items.filter((i) => !i.pinned);
+
+  const savedSection = $("savedSection");
+  if (pinned.length) {
+    savedSection.classList.remove("hidden");
+    layoutHoneycomb($("savedGrid"), pinned, anim);
+  } else {
+    savedSection.classList.add("hidden");
+    $("savedGrid").innerHTML = "";
+  }
+  layoutHoneycomb($("grid"), rest, anim);
   animateGrid = false; // only animate once per full render trigger
 }
 
@@ -158,7 +189,7 @@ function toggleSelect(id) {
   if (i === -1) selected.push(id);
   else selected.splice(i, 1);
   // Toggle highlight on the cell directly — avoids replaying the pop-in animation.
-  const cell = $("grid").querySelector(`.hex-cell[data-id="${id}"]`);
+  const cell = document.querySelector(`.hex-cell[data-id="${id}"]`);
   if (cell) cell.classList.toggle("active", selected.includes(id));
   syncWorkbench();
   renderDetail();
@@ -169,7 +200,7 @@ function clearSelection() {
   $("workbenchText").value = "";
   syncWorkbench();
   renderDetail();
-  $("grid").querySelectorAll(".hex-cell.active").forEach((c) => c.classList.remove("active"));
+  document.querySelectorAll(".hex-cell.active").forEach((c) => c.classList.remove("active"));
 }
 
 // Rebuild the bottom workbench text from the current selection.
@@ -264,14 +295,155 @@ async function deleteSelected() {
   render();
 }
 
+// ── Notes ────────────────────────────────────────────────────────────────────
+function noteLines(body) {
+  return body.split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
+// Format a list note as text with bullet/number prefixes (for copy).
+function noteToText(note) {
+  if (note.type !== "list") return note.body;
+  const lines = noteLines(note.body);
+  return lines.map((l, i) => (note.listStyle === "number" ? `${i + 1}. ${l}` : `• ${l}`)).join("\n");
+}
+
+function notePreview(note) {
+  if (note.type === "list") {
+    const lines = noteLines(note.body);
+    if (!lines.length) return "Empty list";
+    return lines.map((l, i) => (note.listStyle === "number" ? `${i + 1}. ${l}` : `• ${l}`)).join("   ");
+  }
+  return note.body.replace(/\s+/g, " ").trim() || "Empty note";
+}
+
+function renderNotes() {
+  const q = $("search").value.toLowerCase();
+  const items = notes.filter((n) => !q || `${n.title} ${n.body}`.toLowerCase().includes(q));
+  $("notesCount").textContent = items.length
+    ? `${items.length} note${items.length !== 1 ? "s" : ""}`
+    : "No notes";
+
+  const list = $("notesList");
+  list.classList.toggle("grid-mode", noteView === "grid");
+  list.classList.toggle("list-mode", noteView === "list");
+  if (!items.length) {
+    list.innerHTML = '<div class="empty"><span class="empty-icon">🗒</span>No notes yet</div>';
+  } else {
+    list.innerHTML = items.map((n) => {
+      const title = (n.title || "").trim() || "Untitled";
+      const preview = notePreview(n).slice(0, 120);
+      const active = n.id === activeNoteId ? " active" : "";
+      const tag = n.type === "list" ? '<span class="note-tag">list</span>' : "";
+      return `<div class="note-card${active}" data-note="${n.id}">
+        <div class="note-card-title">${tag}${esc(title)}</div>
+        <div class="note-card-preview">${esc(preview)}</div>
+        <div class="note-card-meta">${relTime(n.updated)}</div>
+      </div>`;
+    }).join("");
+  }
+  renderNoteEditor();
+}
+
+function renderNoteEditor() {
+  const ed = $("noteEditor");
+  const note = notes.find((n) => n.id === activeNoteId);
+  if (!note) {
+    ed.innerHTML = '<div class="note-editor-empty">Select a note, or create one</div>';
+    return;
+  }
+  const isList = note.type === "list";
+  ed.innerHTML = `
+    <input id="noteTitle" class="note-title-input" placeholder="Title" value="${escAttr(note.title)}" spellcheck="false" />
+    <div class="note-type-row">
+      <div class="note-type-toggle">
+        <button class="note-type-btn${!isList ? " active" : ""}" data-type="text">Text</button>
+        <button class="note-type-btn${isList ? " active" : ""}" data-type="list">List</button>
+      </div>
+      <div class="note-style-toggle${isList ? "" : " hidden"}" id="noteStyleToggle">
+        <button class="note-style-btn${note.listStyle !== "number" ? " active" : ""}" data-style="bullet">• Bullets</button>
+        <button class="note-style-btn${note.listStyle === "number" ? " active" : ""}" data-style="number">1. Numbers</button>
+      </div>
+    </div>
+    <textarea id="noteBody" class="note-body-input" placeholder="${isList ? "One item per line…" : "Write your note… (plain text)"}" spellcheck="false">${esc(note.body)}</textarea>
+    <div id="notePreview" class="note-preview${isList ? "" : " hidden"}"></div>
+    <div class="note-editor-actions">
+      <span class="note-editor-meta">Edited ${relTime(note.updated)}</span>
+      <button class="btn-secondary btn-sm" id="noteOpenWin" title="Open in a separate window">Open in window</button>
+      <button class="btn-secondary btn-sm" id="noteCopy">Copy</button>
+      <button class="btn-secondary btn-sm btn-danger" id="noteDelete">Delete</button>
+    </div>`;
+
+  const current = () => notes.find((n) => n.id === note.id) || note;
+  const renderPreview = () => {
+    const n = current();
+    const prev = $("notePreview");
+    if (n.type !== "list") { prev.classList.add("hidden"); return; }
+    prev.classList.remove("hidden");
+    const lines = noteLines($("noteBody").value);
+    const tag = n.listStyle === "number" ? "ol" : "ul";
+    prev.innerHTML = lines.length
+      ? `<${tag} class="note-preview-list ${n.listStyle}">${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</${tag}>`
+      : '<div class="note-preview-empty">List items will preview here…</div>';
+  };
+
+  // Autosave without re-rendering the editor (keeps caret/focus).
+  const save = debounce(async () => {
+    notes = await hexClip.updateNote(note.id, { title: $("noteTitle").value, body: $("noteBody").value });
+  }, 350);
+  $("noteTitle").oninput = save;
+  $("noteBody").oninput = () => { save(); renderPreview(); };
+
+  ed.querySelectorAll(".note-type-btn").forEach((b) => {
+    b.onclick = async () => {
+      notes = await hexClip.updateNote(note.id, { type: b.dataset.type, title: $("noteTitle").value, body: $("noteBody").value });
+      renderNoteEditor();
+    };
+  });
+  ed.querySelectorAll(".note-style-btn").forEach((b) => {
+    b.onclick = async () => {
+      notes = await hexClip.updateNote(note.id, { listStyle: b.dataset.style });
+      renderNoteEditor();
+    };
+  });
+
+  $("noteOpenWin").onclick = async () => {
+    notes = await hexClip.updateNote(note.id, { title: $("noteTitle").value, body: $("noteBody").value });
+    hexClip.openNoteWindow(note.id);
+  };
+  $("noteCopy").onclick = () => hexClip.copyText(noteToText(current()));
+  $("noteDelete").onclick = async () => {
+    notes = await hexClip.deleteNote(note.id);
+    activeNoteId = null;
+    renderNotes();
+  };
+
+  renderPreview();
+}
+
+async function newNote(initial) {
+  const note = await hexClip.createNote(initial);
+  notes = await hexClip.getNotes();
+  activeNoteId = note.id;
+  if (view !== "notes") setView("notes");
+  else renderNotes();
+  setTimeout(() => $("noteTitle")?.focus(), 0);
+}
+
 // ── View / filter switching ──────────────────────────────────────────────────
 function setView(v) {
   view = v;
   if (v === "hex") animateGrid = true;
   $("tabList").classList.toggle("tab-active", v === "list");
   $("tabHex").classList.toggle("tab-active", v === "hex");
+  $("tabNotes").classList.toggle("tab-active", v === "notes");
   $("listView").classList.toggle("hidden", v !== "list");
   $("hexView").classList.toggle("hidden", v !== "hex");
+  $("notesView").classList.toggle("hidden", v !== "notes");
+  // Clipboard-only chrome is hidden in the Notes view.
+  $("filterRow").classList.toggle("hidden", v === "notes");
+  $("clearBtn").classList.toggle("hidden", v === "notes");
+  $("workbench").classList.toggle("hidden", v === "notes");
+  $("search").placeholder = v === "notes" ? "Search notes…" : "Search clipboard…";
   render();
 }
 
@@ -286,6 +458,36 @@ function applyTheme(theme) {
 // ── Wiring ───────────────────────────────────────────────────────────────────
 $("tabList").onclick = () => setView("list");
 $("tabHex").onclick = () => setView("hex");
+$("tabNotes").onclick = () => setView("notes");
+
+$("newNoteBtn").onclick = () => newNote();
+$("notesList").addEventListener("click", (e) => {
+  const card = e.target.closest("[data-note]");
+  if (card) { activeNoteId = Number(card.dataset.note); renderNotes(); }
+});
+
+function setNoteView(v) {
+  noteView = v;
+  localStorage.setItem("noteView", v);
+  $("noteViewList").classList.toggle("active", v === "list");
+  $("noteViewGrid").classList.toggle("active", v === "grid");
+  renderNotes();
+}
+$("noteViewList").onclick = () => setNoteView("list");
+$("noteViewGrid").onclick = () => setNoteView("grid");
+
+// Workbench resize controls (S = 1 line, M = default, L = 80% of window).
+function setWorkbenchSize(size) {
+  const h = size === "min" ? 30 : size === "max" ? Math.round(window.innerHeight * 0.8) : 160;
+  $("workbenchText").style.height = h + "px";
+  localStorage.setItem("wbSize", size);
+  $("wbMin").classList.toggle("wb-size-active", size === "min");
+  $("wbMid").classList.toggle("wb-size-active", size === "mid");
+  $("wbMax").classList.toggle("wb-size-active", size === "max");
+}
+$("wbMin").onclick = () => setWorkbenchSize("min");
+$("wbMid").onclick = () => setWorkbenchSize("mid");
+$("wbMax").onclick = () => setWorkbenchSize("max");
 
 document.querySelectorAll(".filter-chip").forEach((chip) => {
   chip.onclick = () => {
@@ -319,13 +521,61 @@ $("list").addEventListener("click", async (e) => {
 
 window.addEventListener("resize", () => { if (view === "hex") render(); });
 
-$("grid").addEventListener("click", (e) => {
-  const cell = e.target.closest("[data-id]");
-  if (cell) toggleSelect(Number(cell.dataset.id));
+// Hex drag-to-move (delegated across the Saved + main grids). A small move
+// threshold distinguishes a drag from a click (which toggles selection).
+let drag = null;
+const hexCanvas = document.querySelector(".hex-canvas-wrap");
+
+hexCanvas.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return;
+  const cell = e.target.closest(".hex-cell");
+  if (!cell) return;
+  drag = {
+    id: Number(cell.dataset.id),
+    el: cell,
+    startX: e.clientX,
+    startY: e.clientY,
+    origLeft: parseFloat(cell.style.left) || 0,
+    origTop: parseFloat(cell.style.top) || 0,
+    moved: false,
+  };
+  e.preventDefault();
 });
 
-// Bottom workbench — plain editable text, copy / clear.
+document.addEventListener("mousemove", (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+  if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+  drag.moved = true;
+  drag.el.classList.add("dragging");
+  drag.el.style.left = Math.max(0, drag.origLeft + dx) + "px";
+  drag.el.style.top = Math.max(0, drag.origTop + dy) + "px";
+});
+
+document.addEventListener("mouseup", async () => {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  if (d.moved) {
+    d.el.classList.remove("dragging");
+    history = await hexClip.setPos(d.id, Math.round(parseFloat(d.el.style.left)), Math.round(parseFloat(d.el.style.top)));
+  } else {
+    toggleSelect(d.id); // plain click → (de)select
+  }
+});
+
+// Double-click a hex to reset it back to the auto honeycomb flow.
+hexCanvas.addEventListener("dblclick", async (e) => {
+  const cell = e.target.closest(".hex-cell");
+  if (cell) { history = await hexClip.setPos(Number(cell.dataset.id), null, null); render(); }
+});
+
+// Bottom workbench — plain editable text, copy / save-to-note / clear.
 $("workbenchCopy").onclick = () => hexClip.copyText($("workbenchText").value);
+$("workbenchToNote").onclick = () => {
+  const body = $("workbenchText").value.trim();
+  if (body) newNote({ body });
+};
 $("workbenchClear").onclick = clearSelection;
 
 $("clearBtn").onclick = async () => { history = await hexClip.clearHistory(); render(); };
@@ -393,7 +643,10 @@ async function init() {
   $("aboutVersion").textContent = "v" + (await hexClip.getVersion());
   reflectPrivate(await hexClip.getPrivateMode());
   setToggle($("startupToggle"), await hexClip.getLoginItem());
+  setNoteView(localStorage.getItem("noteView") || "list");
+  setWorkbenchSize(localStorage.getItem("wbSize") || "mid");
   history = await hexClip.getHistory();
+  notes = await hexClip.getNotes();
   syncWorkbench();
   renderDetail();
   render();

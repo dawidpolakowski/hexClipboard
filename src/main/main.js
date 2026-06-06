@@ -3,7 +3,7 @@ const path = require("path");
 const { autoUpdater } = require("electron-updater");
 
 const { registerIpcHandlers } = require("./ipc");
-const { createWindow } = require("./window");
+const { createWindow, createNoteWindow } = require("./window");
 const store = require("./store");
 const { detectType } = require("../utils/detectType");
 
@@ -189,6 +189,7 @@ app.whenReady().then(() => {
     getPrivateMode: () => isPrivateMode,
     setPrivateMode,
     setLastText: (t) => { lastText = t; },
+    openNoteWindow: (id) => createNoteWindow(id),
   });
 
   registerShortcuts();

@@ -37,6 +37,17 @@ function setTitle(id, title) {
   return setHistory(history);
 }
 
+// Custom hex-grid position (x/y within its section). Pass null to reset to flow.
+function setPos(id, x, y) {
+  const history = getHistory();
+  const item = history.find((h) => h.id === id);
+  if (item) {
+    if (x == null || y == null) { delete item.hx; delete item.hy; }
+    else { item.hx = x; item.hy = y; }
+  }
+  return setHistory(history);
+}
+
 function deleteItem(id) {
   return setHistory(getHistory().filter((h) => h.id !== id));
 }
@@ -57,6 +68,7 @@ module.exports = {
   addToHistory,
   togglePin,
   setTitle,
+  setPos,
   deleteItem,
   clearHistory,
   findItem,

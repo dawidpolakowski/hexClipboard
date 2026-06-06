@@ -7,8 +7,16 @@ contextBridge.exposeInMainWorld("hexClip", {
   copyText:     (text) => ipcRenderer.invoke("copy-text", text),
   pinItem:      (id)        => ipcRenderer.invoke("pin-item", id),
   setTitle:     (id, title) => ipcRenderer.invoke("set-title", id, title),
+  setPos:       (id, x, y)  => ipcRenderer.invoke("set-pos", id, x, y),
   deleteItem:   (id) => ipcRenderer.invoke("delete-item", id),
   clearHistory: ()   => ipcRenderer.invoke("clear-history"),
+
+  // Notes
+  getNotes:   ()         => ipcRenderer.invoke("get-notes"),
+  createNote: (data)     => ipcRenderer.invoke("create-note", data),
+  updateNote: (id, data) => ipcRenderer.invoke("update-note", id, data),
+  deleteNote: (id)       => ipcRenderer.invoke("delete-note", id),
+  openNoteWindow: (id)   => ipcRenderer.invoke("open-note-window", id),
 
   // Private mode
   getPrivateMode: ()        => ipcRenderer.invoke("get-private-mode"),
