@@ -456,6 +456,9 @@ body.dark .btn-secondary { backdrop-filter: var(--glass-blur); }
 
 .btn-sm { height: 26px; font-size: 12px; padding: 0 10px; }
 
+.btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.btn-danger:hover { color: var(--danger); background: var(--danger-glow); border-color: var(--danger); }
+
 /* ========================= */
 /* Workbench (bottom)        */
 /* ========================= */

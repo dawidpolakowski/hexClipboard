@@ -176,6 +176,7 @@ function renderDetail() {
     <span class="detail-count">${selected.length} selected</span>
     <div class="detail-head-actions">
       <button class="btn-secondary btn-sm" id="dCopyAll">Copy all</button>
+      <button class="btn-secondary btn-sm btn-danger" id="dDeleteAll">Delete all</button>
       <button class="btn-secondary btn-sm" id="dClear">Clear</button>
     </div>
   </div>
@@ -192,6 +193,7 @@ function renderDetail() {
       <div class="detail-item-actions">
         <button class="btn-secondary btn-sm" data-sel-copy="${id}">Copy</button>
         <button class="btn-secondary btn-sm" data-sel-remove="${id}">Remove</button>
+        <button class="btn-secondary btn-sm btn-danger" data-sel-delete="${id}">Delete</button>
       </div>
     </div>`;
   });
@@ -199,6 +201,7 @@ function renderDetail() {
   detail.innerHTML = html;
 
   $("dCopyAll").onclick = () => hexClip.copyText($("workbenchText").value);
+  $("dDeleteAll").onclick = deleteSelected;
   $("dClear").onclick = clearSelection;
   detail.querySelectorAll("[data-sel-copy]").forEach((b) => {
     b.onclick = () => hexClip.copyItem(Number(b.dataset.selCopy));
@@ -206,6 +209,30 @@ function renderDetail() {
   detail.querySelectorAll("[data-sel-remove]").forEach((b) => {
     b.onclick = () => toggleSelect(Number(b.dataset.selRemove));
   });
+  detail.querySelectorAll("[data-sel-delete]").forEach((b) => {
+    b.onclick = () => deleteHistoryItem(Number(b.dataset.selDelete));
+  });
+}
+
+// Permanently delete a single item from history (and drop it from the selection).
+async function deleteHistoryItem(id) {
+  history = await hexClip.deleteItem(id);
+  const i = selected.indexOf(id);
+  if (i !== -1) selected.splice(i, 1);
+  syncWorkbench();
+  renderDetail();
+  render(); // animateGrid already false — no replay
+}
+
+// Permanently delete every selected item.
+async function deleteSelected() {
+  for (const id of [...selected]) {
+    history = await hexClip.deleteItem(id);
+  }
+  selected = [];
+  syncWorkbench();
+  renderDetail();
+  render();
 }
 
 // ── View / filter switching ──────────────────────────────────────────────────
