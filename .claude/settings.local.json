@@ -28,7 +28,10 @@
       "Read(//c/Users/hexfo/AppData/Roaming/**)",
       "Bash(rm -f /tmp/hexrun.log)",
       "Bash(git remote *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(powershell *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-Content *)"
     ]
   }
 }

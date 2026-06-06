@@ -720,6 +720,13 @@ body.dark .note-body-input { backdrop-filter: var(--glass-blur); }
 .note-title-input:focus, .note-body-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-glow); }
 .note-editor-actions { display: flex; align-items: center; gap: 8px; }
 .note-editor-meta { font-size: 11px; color: var(--text-muted); margin-right: auto; }
+#noteSave:disabled { opacity: 0.55; cursor: default; }
+#noteSave.is-dirty {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+#noteSave.is-dirty:hover { color: var(--primary-hover); border-color: var(--primary-hover); }
 
 /* Note content-type controls */
 .note-type-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

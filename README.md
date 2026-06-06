@@ -2,11 +2,11 @@
 
 > A honeycomb workbench for your clipboard, notes, and text tools. Built with Electron.
 
-![Hexbench](https://img.shields.io/badge/version-1.0.0-d4af37?style=flat-square) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-afa9ec?style=flat-square) ![license](https://img.shields.io/badge/license-MIT-5dcaa5?style=flat-square) [![Build](https://github.com/dawidpolakowski/hexClipboard/actions/workflows/build.yml/badge.svg)](https://github.com/dawidpolakowski/hexClipboard/actions/workflows/build.yml)
+![Hexbench](https://img.shields.io/badge/version-1.0.0-d4af37?style=flat-square) ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-afa9ec?style=flat-square) ![license](https://img.shields.io/badge/license-MIT-5dcaa5?style=flat-square) [![Build](https://github.com/dawidpolakowski/Hexbench/actions/workflows/build.yml/badge.svg)](https://github.com/dawidpolakowski/Hexbench/actions/workflows/build.yml)
 
 ## Download
 
-**[⬇ Latest Windows build](https://github.com/dawidpolakowski/hexClipboard/releases/latest)**
+**[⬇ Latest Windows build](https://github.com/dawidpolakowski/Hexbench/releases/latest)**
 
 Hexbench sits quietly in your system tray and captures every copy you make — text, links, and code. Retrieve anything instantly with a global shortcut and smart search, browse your whole history in the signature honeycomb grid, gather snippets in the workbench, and keep your own notes alongside.
 
@@ -47,8 +47,8 @@ In the hex grid: **click** to select, **drag** to move (snaps to grid), **double
 ## Getting started
 
 ```bash
-git clone https://github.com/dawidpolakowski/hexClipboard.git
-cd hexClipboard
+git clone https://github.com/dawidpolakowski/Hexbench.git
+cd Hexbench
 npm install
 
 npm run dev            # run with DevTools

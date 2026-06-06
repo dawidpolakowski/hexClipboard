@@ -413,7 +413,8 @@ function renderNoteEditor() {
     <textarea id="noteBody" class="note-body-input" placeholder="${isList ? "One item per line…" : "Write your note… (plain text)"}" spellcheck="false">${esc(note.body)}</textarea>
     <div id="notePreview" class="note-preview${isList ? "" : " hidden"}"></div>
     <div class="note-editor-actions">
-      <span class="note-editor-meta">Edited ${relTime(note.updated)}</span>
+      <span class="note-editor-meta" id="noteMeta">Edited ${relTime(note.updated)}</span>
+      <button class="btn-secondary btn-sm" id="noteSave" disabled>Saved</button>
       <button class="btn-secondary btn-sm" id="noteOpenWin" title="Open in a separate window">Open in window</button>
       <button class="btn-secondary btn-sm" id="noteCopy">Copy</button>
       <button class="btn-secondary btn-sm btn-danger" id="noteDelete">Delete</button>
@@ -432,12 +433,27 @@ function renderNoteEditor() {
       : '<div class="note-preview-empty">List items will preview here…</div>';
   };
 
-  // Autosave without re-rendering the editor (keeps caret/focus).
-  const save = debounce(async () => {
+  // Save without re-rendering the editor (keeps caret/focus). Autosaves on a debounce,
+  // and the Save button flushes immediately; the button doubles as a saved/unsaved badge.
+  let dirty = false;
+  const setDirty = (d) => {
+    dirty = d;
+    const btn = $("noteSave");
+    btn.textContent = d ? "Save" : "Saved";
+    btn.classList.toggle("is-dirty", d);
+    btn.disabled = !d;
+  };
+  const doSave = async () => {
+    if (!dirty) return;
     notes = await hexClip.updateNote(note.id, { title: $("noteTitle").value, body: $("noteBody").value });
-  }, 350);
-  $("noteTitle").oninput = save;
-  $("noteBody").oninput = () => { save(); renderPreview(); };
+    setDirty(false);
+    $("noteMeta").textContent = `Edited ${relTime(current().updated)}`;
+  };
+  const autosave = debounce(doSave, 350);
+  const onEdit = () => { setDirty(true); autosave(); };
+  $("noteTitle").oninput = onEdit;
+  $("noteBody").oninput = () => { onEdit(); renderPreview(); };
+  $("noteSave").onclick = doSave;
 
   ed.querySelectorAll(".note-type-btn").forEach((b) => {
     b.onclick = async () => {
@@ -453,7 +469,7 @@ function renderNoteEditor() {
   });
 
   $("noteOpenWin").onclick = async () => {
-    notes = await hexClip.updateNote(note.id, { title: $("noteTitle").value, body: $("noteBody").value });
+    await doSave();
     hexClip.openNoteWindow(note.id);
   };
   $("noteCopy").onclick = () => hexClip.copyText(noteToText(current()));

@@ -27,7 +27,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: hexClipboard-windows
+          name: Hexbench-windows
           path: dist/*.exe
           if-no-files-found: error
 
