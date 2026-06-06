@@ -10,10 +10,18 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body class="dark note-window">
-  <div class="note-win">
-    <input id="noteTitle" class="note-title-input" placeholder="Title" spellcheck="false" />
-    <textarea id="noteBody" class="note-body-input" placeholder="Write your note… (plain text)" spellcheck="false"></textarea>
-    <div class="note-win-foot"><span id="noteMeta" class="note-editor-meta"></span></div>
+  <div class="sticky">
+    <div class="sticky-bar">
+      <span id="stickyTitle" class="sticky-title">Note</span>
+      <div class="sticky-actions">
+        <button id="dockLeft" class="sticky-btn" title="Dock to left edge">‹</button>
+        <button id="dockRight" class="sticky-btn" title="Dock to right edge">›</button>
+        <button id="lock" class="sticky-btn" title="Lock (read-only, pinned on top)">🔓</button>
+        <button id="copy" class="sticky-btn" title="Copy note">⧉</button>
+        <button id="hide" class="sticky-btn sticky-btn-close" title="Close">✕</button>
+      </div>
+    </div>
+    <div id="stickyContent" class="sticky-content"></div>
   </div>
   <script src="./note.js"></script>
 </body>

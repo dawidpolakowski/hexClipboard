@@ -17,6 +17,10 @@ contextBridge.exposeInMainWorld("hexClip", {
   updateNote: (id, data) => ipcRenderer.invoke("update-note", id, data),
   deleteNote: (id)       => ipcRenderer.invoke("delete-note", id),
   openNoteWindow: (id)   => ipcRenderer.invoke("open-note-window", id),
+  noteDock:    (side)  => ipcRenderer.invoke("note-dock", side),
+  noteSetLock: (locked) => ipcRenderer.invoke("note-set-lock", locked),
+  noteSetSize: (w, h)  => ipcRenderer.invoke("note-set-size", w, h),
+  noteClose:   ()      => ipcRenderer.invoke("note-close"),
 
   // Private mode
   getPrivateMode: ()        => ipcRenderer.invoke("get-private-mode"),

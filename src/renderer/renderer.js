@@ -392,11 +392,16 @@ function snapNote(x, y) {
 
 function renderNoteEditor() {
   const ed = $("noteEditor");
+  const body = document.querySelector(".notes-body");
   const note = notes.find((n) => n.id === activeNoteId);
+  // The editor panel is only shown while creating/editing a note; otherwise the
+  // list takes the full width.
   if (!note) {
-    ed.innerHTML = '<div class="note-editor-empty">Select a note, or create one</div>';
+    body.classList.remove("editing");
+    ed.innerHTML = "";
     return;
   }
+  body.classList.add("editing");
   const isList = note.type === "list";
   ed.innerHTML = `
     <input id="noteTitle" class="note-title-input" placeholder="Title" value="${escAttr(note.title)}" spellcheck="false" />
@@ -418,6 +423,7 @@ function renderNoteEditor() {
       <button class="btn-secondary btn-sm" id="noteOpenWin" title="Open in a separate window">Open in window</button>
       <button class="btn-secondary btn-sm" id="noteCopy">Copy</button>
       <button class="btn-secondary btn-sm btn-danger" id="noteDelete">Delete</button>
+      <button class="btn-secondary btn-sm" id="noteCollapse" title="Close editor">Close</button>
     </div>`;
 
   const current = () => notes.find((n) => n.id === note.id) || note;
@@ -478,6 +484,7 @@ function renderNoteEditor() {
     activeNoteId = null;
     renderNotes();
   };
+  $("noteCollapse").onclick = () => { activeNoteId = null; renderNotes(); };
 
   renderPreview();
 }
@@ -576,11 +583,18 @@ document.addEventListener("mouseup", async () => {
   }
 });
 
-// Double-click a grid note to reset it back to the auto flow.
+// Double-click: in list mode open the note as a sticky window; in grid mode reset
+// the card back to the auto flow.
 notesListEl.addEventListener("dblclick", async (e) => {
-  if (noteView !== "grid") return;
   const card = e.target.closest(".note-card");
-  if (card) { notes = await hexClip.updateNote(Number(card.dataset.note), { nx: null, ny: null }); renderNotes(); }
+  if (!card) return;
+  const id = Number(card.dataset.note);
+  if (noteView === "grid") {
+    notes = await hexClip.updateNote(id, { nx: null, ny: null });
+    renderNotes();
+  } else {
+    hexClip.openNoteWindow(id);
+  }
 });
 
 function setNoteView(v) {

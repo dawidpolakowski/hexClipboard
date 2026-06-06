@@ -1,4 +1,4 @@
-const { ipcMain, clipboard, app, BrowserWindow, Notification } = require("electron");
+const { ipcMain, clipboard, app, BrowserWindow, Notification, screen } = require("electron");
 const store = require("./store");
 const notes = require("./notesStore");
 
@@ -63,6 +63,42 @@ function registerIpcHandlers(deps = {}) {
   });
   ipcMain.handle("win-hide", () => BrowserWindow.getFocusedWindow()?.hide());
   ipcMain.handle("win-quit", () => app.quit());
+
+  // ── Sticky note window controls (act on the sender's window) ───────────────
+  // Dock to a screen edge, top-aligned, stacking under any notes already docked
+  // to that same side (no overlap).
+  ipcMain.handle("note-dock", (e, side) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win) return;
+    const { workArea } = screen.getDisplayMatching(win.getBounds());
+    const [width, height] = win.getSize();
+    const x = side === "right" ? workArea.x + workArea.width - width : workArea.x;
+    const GAP = 6;
+    let y = workArea.y;
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (w === win || w.isDestroyed() || w.__dockSide !== side) continue;
+      const b = w.getBounds();
+      y = Math.max(y, b.y + b.height + GAP);
+    }
+    const maxY = workArea.y + workArea.height - height;
+    if (y > maxY) y = Math.max(workArea.y, maxY);
+    win.__dockSide = side;
+    win.setBounds({ x, y, width, height });
+  });
+  // Locked: fixed in place + always on top (renderer makes it read-only too).
+  ipcMain.handle("note-set-lock", (e, locked) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win) return false;
+    win.setMovable(!locked);
+    win.setResizable(!locked);
+    win.setAlwaysOnTop(!!locked);
+    return !!locked;
+  });
+  ipcMain.handle("note-set-size", (e, w, h) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (win) win.setContentSize(Math.round(w), Math.round(h));
+  });
+  ipcMain.handle("note-close", (e) => BrowserWindow.fromWebContents(e.sender)?.close());
 
   // ── System ───────────────────────────────────────────────────────────────
   ipcMain.handle("notify", (_, title, body) => {

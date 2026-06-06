@@ -75,12 +75,15 @@ function createWindow() {
 // A standalone plain-text window for a single note.
 function createNoteWindow(noteId) {
   const win = new BrowserWindow({
-    width: 540,
-    height: 600,
-    minWidth: 320,
-    minHeight: 260,
+    width: 300,
+    height: 380,
+    minWidth: 220,
+    minHeight: 140,
     title: "Note",
     icon: ICON_PATH,
+    frame: false,
+    alwaysOnTop: false,
+    skipTaskbar: false,
     backgroundColor: "#0c0c10",
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),

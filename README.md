@@ -26,7 +26,9 @@ Hexbench sits quietly in your system tray and captures every copy you make — t
 - **List & Grid layouts** — vertical list with editor, or draggable rectangle cards
   (magnetic snapping in grid mode)
 - **Two content types** — plain text or a bullet / numbered list, with a live preview
-- **Open in its own window** — pop any note out as a standalone plain-text window
+- **Open as a sticky** (double-click a note) — pops it into a small editable window that
+  remembers its size; **lock** it (🔒) to make it a read-only, always-on-top reference you
+  can dock to the left/right screen edge (docked notes stack down the side)
 
 ### Everywhere
 - **Themes** — Dark (gold), GitHub Dark, and Light
