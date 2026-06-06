@@ -1,192 +1,219 @@
-const { app, BrowserWindow, Tray, Menu, globalShortcut, clipboard, ipcMain, nativeImage } = require('electron')
-const path = require('path')
-const Store = require('electron-store')
+const { app, Tray, Menu, dialog, globalShortcut, clipboard, nativeImage } = require("electron");
+const path = require("path");
+const { autoUpdater } = require("electron-updater");
 
-const store = new Store()
-const isDev = process.argv.includes('--dev')
+const { registerIpcHandlers } = require("./ipc");
+const { createWindow } = require("./window");
+const store = require("./store");
+const { detectType } = require("../utils/detectType");
 
-let tray = null
-let pickerWindow = null
-let hexWindow = null
-let isPrivateMode = false
-let pollInterval = null
+let mainWindow = null;
+let tray = null;
+let pollInterval = null;
+let isPrivateMode = false;
+let lastText = "";
 
-const MAX_HISTORY = 500
-let lastText = ''
-
-function createPickerWindow() {
-  pickerWindow = new BrowserWindow({
-    width: 380,
-    height: 520,
-    show: false,
-    frame: false,
-    resizable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    transparent: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    }
-  })
-
-  pickerWindow.loadFile(path.join(__dirname, '../renderer/picker.html'))
-
-  pickerWindow.on('blur', () => {
-    pickerWindow.hide()
-  })
-
-  if (isDev) pickerWindow.webContents.openDevTools({ mode: 'detach' })
+// ── Tray icon ─────────────────────────────────────────────────────────────────
+function makeTrayIcon() {
+  const file = process.platform === "win32" ? "icon-tray.ico" : "icon-tray-64.png";
+  const icon = nativeImage.createFromPath(path.join(__dirname, "../../assets", file));
+  return icon.isEmpty()
+    ? nativeImage.createFromPath(path.join(__dirname, "../../assets/tray-icon.png"))
+    : icon;
 }
 
-function createHexWindow() {
-  hexWindow = new BrowserWindow({
-    width: 900,
-    height: 660,
-    show: false,
-    frame: true,
-    title: 'hexClipboard — Hex Grid',
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    }
-  })
+// ── Error boundaries ────────────────────────────────────────────────────────
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  dialog.showErrorBox("Unexpected error", err.message || String(err));
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection:", reason);
+});
 
-  hexWindow.loadFile(path.join(__dirname, '../renderer/hex.html'))
-  hexWindow.on('closed', () => { hexWindow = null })
+// ── App menu (macOS needs an Edit menu for copy/paste; hidden on Win/Linux) ───
+function createAppMenu() {
+  const isMac = process.platform === "darwin";
+  const template = [
+    ...(isMac
+      ? [{
+          label: app.name,
+          submenu: [
+            { role: "about" }, { type: "separator" }, { role: "services" },
+            { type: "separator" }, { role: "hide" }, { role: "hideOthers" },
+            { role: "unhide" }, { type: "separator" }, { role: "quit" },
+          ],
+        }]
+      : []),
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" }, { role: "redo" }, { type: "separator" },
+        { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(isMac ? Menu.buildFromTemplate(template) : null);
 }
 
-function togglePicker() {
-  if (!pickerWindow) createPickerWindow()
+// ── Window helpers ────────────────────────────────────────────────────────────
+function showWindow(tab) {
+  if (!mainWindow) return;
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send("refresh-history", store.getHistory());
+  if (tab) mainWindow.webContents.send("switch-tab", tab);
+}
 
-  if (pickerWindow.isVisible()) {
-    pickerWindow.hide()
+function toggleWindow() {
+  if (!mainWindow) return;
+  if (mainWindow.isVisible() && mainWindow.isFocused()) {
+    mainWindow.hide();
   } else {
-    pickerWindow.show()
-    pickerWindow.focus()
-    pickerWindow.webContents.send('refresh-history', getHistory())
+    showWindow();
   }
 }
 
-function openHexView() {
-  if (!hexWindow) createHexWindow()
-  hexWindow.show()
-  hexWindow.focus()
-  hexWindow.webContents.send('refresh-history', getHistory())
+function broadcastHistory() {
+  if (mainWindow && mainWindow.isVisible()) {
+    mainWindow.webContents.send("refresh-history", store.getHistory());
+  }
 }
 
-function getHistory() {
-  return store.get('history', [])
+// ── Private mode ──────────────────────────────────────────────────────────────
+function setPrivateMode(enabled) {
+  isPrivateMode = enabled;
+  if (tray) {
+    tray.setToolTip(isPrivateMode ? "hexClipboard (private)" : "hexClipboard");
+    tray.setContextMenu(buildTrayMenu());
+  }
+  mainWindow?.webContents.send("private-mode", isPrivateMode);
 }
 
-function addToHistory(entry) {
-  let history = getHistory()
-  const duplicate = history.findIndex(h => h.text === entry.text)
-  if (duplicate !== -1) history.splice(duplicate, 1)
-  history.unshift(entry)
-  if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY)
-  store.set('history', history)
-}
-
+// ── Clipboard polling ─────────────────────────────────────────────────────────
 function startPolling() {
   pollInterval = setInterval(() => {
-    if (isPrivateMode) return
+    if (isPrivateMode) return;
     try {
-      const text = clipboard.readText()
+      const text = clipboard.readText();
       if (text && text !== lastText && text.trim().length > 0) {
-        lastText = text
-        const type = detectType(text)
-        addToHistory({ id: Date.now(), text, type, time: Date.now(), pinned: false })
-        if (pickerWindow?.isVisible()) {
-          pickerWindow.webContents.send('refresh-history', getHistory())
-        }
+        lastText = text;
+        store.addToHistory({
+          id: Date.now(),
+          text,
+          type: detectType(text),
+          time: Date.now(),
+          pinned: false,
+        });
+        broadcastHistory();
       }
-    } catch (_) {}
-  }, 500)
+    } catch {
+      // Ignore transient clipboard read failures.
+    }
+  }, 500);
 }
 
-function detectType(text) {
-  if (/^https?:\/\//i.test(text.trim())) return 'link'
-  if (/[\{\}\[\];]/.test(text) || /^\s*(const|let|var|function|import|export|def |class |if |for |while )/.test(text)) return 'code'
-  return 'text'
-}
-
+// ── Tray ──────────────────────────────────────────────────────────────────────
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
-    { label: 'hexClipboard', enabled: false },
-    { type: 'separator' },
-    { label: 'Open picker', accelerator: 'Ctrl+Shift+V', click: togglePicker },
-    { label: 'Hex grid view', accelerator: 'Ctrl+Shift+H', click: openHexView },
-    { type: 'separator' },
+    { label: `hexClipboard v${app.getVersion()}`, enabled: false },
+    { type: "separator" },
+    { label: "Open", accelerator: "Ctrl+Shift+V", click: () => showWindow() },
+    { label: "Hex grid view", accelerator: "Ctrl+Shift+H", click: () => showWindow("hex") },
+    { type: "separator" },
     {
-      label: isPrivateMode ? 'Disable private mode' : 'Enable private mode',
-      accelerator: 'Ctrl+Shift+X',
-      click: () => {
-        isPrivateMode = !isPrivateMode
-        tray.setToolTip(isPrivateMode ? 'hexClipboard (private)' : 'hexClipboard')
-        tray.setContextMenu(buildTrayMenu())
-      }
+      label: isPrivateMode ? "Disable private mode" : "Enable private mode",
+      accelerator: "Ctrl+Shift+X",
+      click: () => setPrivateMode(!isPrivateMode),
     },
-    { label: 'Clear history', click: () => { store.set('history', store.get('history', []).filter(h => h.pinned)) } },
-    { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() }
-  ])
+    {
+      label: "Clear history",
+      click: () => { store.clearHistory(); broadcastHistory(); },
+    },
+    { type: "separator" },
+    {
+      label: "Quit",
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+}
+
+function createTray() {
+  tray = new Tray(makeTrayIcon());
+  tray.setToolTip("hexClipboard");
+  tray.setContextMenu(buildTrayMenu());
+  tray.on("click", toggleWindow);
+  tray.on("double-click", () => showWindow());
+}
+
+// ── Global shortcuts ──────────────────────────────────────────────────────────
+function registerShortcuts() {
+  globalShortcut.register("Ctrl+Shift+V", toggleWindow);
+  globalShortcut.register("Ctrl+Shift+H", () => showWindow("hex"));
+  globalShortcut.register("Ctrl+Shift+X", () => setPrivateMode(!isPrivateMode));
+  globalShortcut.register("Ctrl+Shift+P", () => {
+    const history = store.getHistory();
+    if (history.length > 0) {
+      store.togglePin(history[0].id);
+      broadcastHistory();
+    }
+  });
+}
+
+// ── Single instance ───────────────────────────────────────────────────────────
+app.setAppUserModelId("com.dawidpolakowski.hexclipboard");
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => showWindow());
 }
 
 app.whenReady().then(() => {
-  app.setName('hexClipboard')
+  if (!gotLock) return;
+  app.setName("hexClipboard");
+  console.log(`[main] ready — v${app.getVersion()} packaged=${app.isPackaged} platform=${process.platform}`);
 
-  const icon = nativeImage.createFromPath(path.join(__dirname, '../../assets/tray-icon.png'))
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
-  tray.setToolTip('hexClipboard')
-  tray.setContextMenu(buildTrayMenu())
-  tray.on('click', togglePicker)
+  createAppMenu();
+  mainWindow = createWindow();
+  createTray();
 
-  createPickerWindow()
+  registerIpcHandlers({
+    getPrivateMode: () => isPrivateMode,
+    setPrivateMode,
+    setLastText: (t) => { lastText = t; },
+  });
 
-  globalShortcut.register('Ctrl+Shift+V', togglePicker)
-  globalShortcut.register('Ctrl+Shift+H', openHexView)
-  globalShortcut.register('Ctrl+Shift+X', () => {
-    isPrivateMode = !isPrivateMode
-    tray.setContextMenu(buildTrayMenu())
-  })
-  globalShortcut.register('Ctrl+Shift+P', () => {
-    const history = getHistory()
-    if (history.length > 0) {
-      history[0].pinned = !history[0].pinned
-      store.set('history', history)
-    }
-  })
+  registerShortcuts();
+  startPolling();
 
-  startPolling()
-})
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.on("update-downloaded", () => {
+      dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "Update ready",
+        message: "A new version has been downloaded. Restart hexClipboard to apply it.",
+        buttons: ["Restart now", "Later"],
+      }).then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
+    });
+  }
+});
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
-  if (pollInterval) clearInterval(pollInterval)
-})
+app.on("activate", () => showWindow());
 
-app.on('window-all-closed', (e) => e.preventDefault())
+app.on("before-quit", () => { app.isQuitting = true; });
 
-ipcMain.handle('get-history', () => getHistory())
-ipcMain.handle('copy-item', (_, id) => {
-  const item = getHistory().find(h => h.id === id)
-  if (item) { clipboard.writeText(item.text); lastText = item.text }
-})
-ipcMain.handle('pin-item', (_, id) => {
-  const history = getHistory()
-  const item = history.find(h => h.id === id)
-  if (item) { item.pinned = !item.pinned; store.set('history', history) }
-  return getHistory()
-})
-ipcMain.handle('delete-item', (_, id) => {
-  store.set('history', getHistory().filter(h => h.id !== id))
-  return getHistory()
-})
-ipcMain.handle('clear-history', () => {
-  store.set('history', getHistory().filter(h => h.pinned))
-  return getHistory()
-})
-ipcMain.handle('hide-picker', () => pickerWindow?.hide())
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+  if (pollInterval) clearInterval(pollInterval);
+});
+
+// Keep running in the tray when all windows are closed.
+app.on("window-all-closed", (e) => e.preventDefault());

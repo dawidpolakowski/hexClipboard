@@ -3,7 +3,25 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(echo \"Electron launched \\(PID: $!\\)\")",
-      "Bash(./node_modules/electron/dist/electron.exe . --dev)"
+      "Bash(./node_modules/electron/dist/electron.exe . --dev)",
+      "Read(//c/Users/hexfo/Git/apps/**)",
+      "Read(//c/Users/hexfo/Git/**)",
+      "Bash(grep -iE \"eslint|electron-builder|electron$\")",
+      "Bash(rm -f main.js preload.js hex.html picker.html)",
+      "Bash(rmdir srcmain *)",
+      "Bash(rm -f assets/.gitkeep)",
+      "Bash(node scripts/generate-icons.js)",
+      "Bash(npm install *)",
+      "Bash(npx eslint *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(timeout 18 npx electron . --dev)",
+      "Bash(echo \"exit=$?\")",
+      "Read(//tmp/**)",
+      "Bash(node --check src/renderer/renderer.js)",
+      "Bash(node --check src/main/main.js)",
+      "Bash(node --check src/main/ipc.js)",
+      "Bash(node --check src/main/window.js)",
+      "Bash(node --check src/main/store.js)"
     ]
   }
 }

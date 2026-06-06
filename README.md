@@ -8,15 +8,16 @@
 
 **[⬇ Latest Windows build](https://github.com/dawidpolakowski/hexClipboard/releases/latest)**
 
-hexClipboard sits quietly in your system tray and captures every copy you make — text, links, and code. Retrieve anything instantly with a global shortcut, smart search, and pinned favourites. Browse your full history in the signature hexagonal grid view.
+hexClipboard sits quietly in your system tray and captures every copy you make — text, links, and code. Retrieve anything instantly with a global shortcut, smart search, and pinned favourites. One window, two views: a fast searchable list and the signature hexagonal grid.
 
 ## Features
 
-- **Instant picker** — pop open with `Ctrl+Shift+V`, type to search, click to paste
-- **Hex grid browser** — visualise your entire history as a zoomable honeycomb
+- **Single window, two views** — toggle between a searchable **List** and the **Hex grid** browser
+- **Instant access** — pop open with `Ctrl+Shift+V`, type to search, click to paste
 - **Smart type detection** — auto-classifies text, links, and code snippets
 - **Pinned favourites** — pin items that survive restarts and history clears
 - **Private mode** — pause recording with `Ctrl+Shift+X`
+- **Themes** — Dark (gold), GitHub Dark, and Light
 - **Lightweight** — runs in the system tray, minimal RAM footprint
 - **Cross-platform** — Windows, macOS, Linux
 
@@ -24,11 +25,11 @@ hexClipboard sits quietly in your system tray and captures every copy you make �
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+Shift+V` | Open / close picker |
-| `Ctrl+Shift+H` | Open hex grid view |
+| `Ctrl+Shift+V` | Show / hide the window |
+| `Ctrl+Shift+H` | Open the hex grid view |
 | `Ctrl+Shift+X` | Toggle private mode |
 | `Ctrl+Shift+P` | Pin last copied item |
-| `Esc` | Dismiss picker |
+| `Esc` | Hide window / close dialog |
 
 ## Getting started
 
@@ -43,6 +44,9 @@ npm install
 # Run in development
 npm run dev
 
+# Regenerate icons (PNG + ICO + SVG)
+npm run icons
+
 # Build for your platform
 npm run build:win    # Windows
 npm run build:mac    # macOS
@@ -55,13 +59,23 @@ npm run build:linux  # Linux
 hexClipboard/
 ├── src/
 │   ├── main/
-│   │   ├── main.js          # Main process, tray, global shortcuts, clipboard polling
-│   │   └── preload.js       # Context bridge — secure IPC between main and renderer
-│   └── renderer/
-│       ├── picker.html      # Quick picker popup window
-│       └── hex.html         # Full hex grid browser window
-├── assets/
-│   └── tray-icon.png        # 16×16 tray icon (provide your own)
+│   │   ├── main.js          # App lifecycle, tray, global shortcuts, clipboard polling
+│   │   ├── ipc.js           # ipcMain handlers
+│   │   ├── window.js        # Main window creation
+│   │   ├── windowState.js   # Window bounds persistence
+│   │   └── store.js         # Clipboard history store (electron-store)
+│   ├── preload/
+│   │   └── preload.js       # Context bridge — secure IPC (window.hexClip)
+│   ├── renderer/
+│   │   ├── index.html       # Single window: List + Hex grid views
+│   │   ├── renderer.js      # Renderer logic
+│   │   └── styles.css       # Design tokens + theming
+│   └── utils/
+│       └── detectType.js    # Text/link/code classification
+├── scripts/
+│   └── generate-icons.js    # Dependency-free icon generator
+├── assets/                  # Generated icons (npm run icons)
+├── eslint.config.mjs
 ├── package.json
 └── README.md
 ```
